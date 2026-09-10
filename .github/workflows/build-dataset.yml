@@ -47,7 +47,7 @@ jobs:
 
       - name: Run pipeline
         env:
-          UNESCLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+          HERITLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
         run: |
           # pipefail matters: the run is piped through tee, so without it a
           # pipeline crash exits 0 and the job reports a green build.

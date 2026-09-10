@@ -1,11 +1,31 @@
-# Unescle
+# Heritle
 
 A trilingual (EN/FR/ES) daily heritage-guessing game. Three rounds a day drawn
 from World Heritage Sites and Intangible Cultural Heritage elements, scored out
 of 100, with a Globle-style world-map distance mechanic.
 
+## How a round works
+
+**You guess countries, never site names.** With ~1,270 inscriptions — most of
+them places nobody could name unprompted — the name was never a fair thing to
+ask for. The map is the puzzle:
+
+1. A photo and a locked clue ladder appear. Type a country.
+2. Each guess reports distance and direction from that country to the site, and
+   drops a heat-coloured pin. Clues unlock as you go: Continent → Category →
+   Inscribed → Region → Description. The country is never revealed — it's the
+   answer.
+3. Naming the right country wins the round, worth 80% of it, scaled by how few
+   guesses you took. The site's name and story are then revealed as the payoff.
+4. **Region bonus**: one optional tap on the map to pin the exact spot. Landing
+   within 50 km earns the remaining 20%, tapering to nothing by 1,500 km.
+
+Each day is two World Heritage rounds and one intangible element, ramping from
+widely recognised to hidden gem. That ratio tracks the pool sizes (~1,270 sites
+to ~850 elements) so neither runs dry ahead of the other.
+
 ```
-unescle.html        the whole game — single file, no build step
+heritle.html        the whole game — single file, no build step
 build_dataset.py    Wikidata + Wikimedia Commons pipeline
 data/dataset.json   pipeline output (metadata; not committed until it's real)
 images/{id}.jpg     optional self-hosted photos (--download-images)
@@ -30,7 +50,7 @@ Any static server works; `fetch()` needs one (over `file://` the game falls back
 to the demo set by design):
 
 ```sh
-python3 -m http.server 8000     # then open http://localhost:8000/unescle.html
+python3 -m http.server 8000     # then open http://localhost:8000/heritle.html
 ```
 
 ## Building the dataset
@@ -44,7 +64,7 @@ python build_dataset.py --download-images  # also self-host the photos (~550 MB)
 python build_dataset.py --fixture tests/fixtures   # offline, no network
 ```
 
-Set `UNESCLE_CONTACT` to your own contact address — Wikimedia requires a
+Set `HERITLE_CONTACT` to your own contact address — Wikimedia requires a
 descriptive User-Agent and will throttle anonymous-looking clients.
 
 The run prints a distribution report and writes:
@@ -84,7 +104,7 @@ when anything is missing.
 ```
 
 Categorical fields travel as **codes**, not prose, and are translated in
-`unescle.html`'s UI table. Wikidata's FR/ES label coverage is thin for
+`heritle.html`'s UI table. Wikidata's FR/ES label coverage is thin for
 lesser-known entries, so translating these per-entry would leave most clue tiles
 in English; only genuinely per-entry text (names, country names, descriptions)
 is pulled from Wikidata, and every fallback to English is counted and reported.
@@ -215,7 +235,7 @@ results. The script still warns if a run returns under half the expected count.
 
 ## Deployment
 
-`.github/workflows/pages.yml` publishes `unescle.html` as `index.html` on every
+`.github/workflows/pages.yml` publishes `heritle.html` as `index.html` on every
 push to `main`, along with `data/` and `images/` if present. Enable Pages once,
 under Settings → Pages → Source: **GitHub Actions**.
 

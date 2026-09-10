@@ -1,0 +1,53 @@
+name: Compare against official lists
+
+# Development audit, not part of the game or the deploy. Runs here because the
+# official endpoints need network access.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/compare_official.py'
+      - '.github/workflows/compare-official.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Compare
+        env:
+          HERITLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          if [ ! -f data/dataset.json ]; then
+            echo "No data/dataset.json on this ref — run Build dataset first." >&2
+            exit 1
+          fi
+          python tools/compare_official.py --dataset data/dataset.json 2>&1 | tee compare.log
+
+      - name: Report
+        if: always()
+        run: |
+          echo '### Official list comparison' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -80 compare.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: comparison
+          path: compare.log
+          if-no-files-found: warn

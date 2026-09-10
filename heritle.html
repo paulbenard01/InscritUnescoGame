@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unescle — three heritage guesses a day</title>
+<title>Heritle — three heritage guesses a day</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -152,7 +152,7 @@
 <body>
 <div class="page">
   <header>
-    <div class="wordmark">Unescle</div>
+    <div class="wordmark">Heritle</div>
     <div class="tagline" id="tagline"></div>
     <div class="lang-slider" role="tablist">
       <button class="lang-btn active" data-lang="en">EN</button>
@@ -313,47 +313,68 @@ const FALLBACK_DATA = [
 
 /* ---------- i18n ---------- */
 const UI = {
-  en:{ tagline:'three heritage guesses a day, scored out of 100', placeholder:'Type a site or tradition…',
+  en:{ tagline:'three heritage guesses a day, scored out of 100', placeholder:'Type a country…',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
        readoutStart:'Make your first guess', readout:(km,dir)=>`Closest guess: <b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 guesses this round`, clueLabels:['Continent','Category','Inscribed','Country','Description'],
+       guessCount:(n)=>`${n} / 6 guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
        win:'Found it', winSub:(n)=>`Solved in ${n} guess${n===1?'':'es'}.`, lose:'Round over',
        loseSub:'The answer was:', nextRound:'Next round', learnMore:'Learn more',
-       finalTitle:'Today’s Unescle', finalSub:(s)=>`Score: ${s} / 100`, playTomorrow:'Come back tomorrow for three new ones.',
+       finalTitle:'Today’s Heritle', finalSub:(s)=>`Score: ${s} / 100`, playTomorrow:'Come back tomorrow for three new ones.',
        tier:{1:'Widely recognized',2:'Moderately known',3:'Hidden gem'},
        photoFallback:'Photo not yet loaded — drop images/{id}.jpg in from the data pipeline.',
        
        continents:{EU:'Europe',AS:'Asia',AF:'Africa',NA:'North America',SA:'South America',OC:'Oceania',AN:'Antarctica'},
        categories:{cultural:'Cultural site',natural:'Natural site',mixed:'Mixed site',site:'Heritage site',intangible:'Living tradition'},
        unknown:'Unknown',
+       regions:{N:'Northern',S:'Southern',E:'Eastern',W:'Western',C:'Central'},
+       regionOf:(dir,cont)=>`${dir} ${cont}`,
+       bonusPrompt:'Bonus — tap the map to pin the exact spot',
+       bonusSkip:'Skip bonus', bonusConfirm:'Confirm pin',
+       bonusResult:(km,pts)=>`<b>${km} km</b> off — +${pts} bonus`,
+       bonusNone:'No bonus taken.',
+       answerWas:'The country was:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
-  fr:{ tagline:'trois devinettes patrimoniales par jour, notées sur 100', placeholder:'Un site ou une tradition…',
+  fr:{ tagline:'trois devinettes patrimoniales par jour, notées sur 100', placeholder:'Tapez un pays…',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
        readoutStart:'Faites votre première proposition', readout:(km,dir)=>`Proposition la plus proche : <b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Pays','Description'],
+       guessCount:(n)=>`${n} / 6 essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
        win:'Trouvé', winSub:(n)=>`Résolu en ${n} essai${n===1?'':'s'}.`, lose:'Manche terminée',
        loseSub:'La réponse était :', nextRound:'Manche suivante', learnMore:'En savoir plus',
-       finalTitle:'L’Unescle du jour', finalSub:(s)=>`Score : ${s} / 100`, playTomorrow:'Revenez demain pour trois nouvelles devinettes.',
+       finalTitle:'L’Heritle du jour', finalSub:(s)=>`Score : ${s} / 100`, playTomorrow:'Revenez demain pour trois nouvelles devinettes.',
        tier:{1:'Largement reconnu',2:'Assez connu',3:'Trésor caché'},
        photoFallback:'Photo pas encore chargée — ajoutez images/{id}.jpg via le pipeline de données.',
        
        continents:{EU:'Europe',AS:'Asie',AF:'Afrique',NA:'Amérique du Nord',SA:'Amérique du Sud',OC:'Océanie',AN:'Antarctique'},
        categories:{cultural:'Site culturel',natural:'Site naturel',mixed:'Site mixte',site:'Site patrimonial',intangible:'Tradition vivante'},
        unknown:'Inconnu',
+       regions:{N:'Nord',S:'Sud',E:'Est',W:'Ouest',C:'Centre'},
+       regionOf:(dir,cont)=>`${cont} — ${dir}`,
+       bonusPrompt:'Bonus — touchez la carte pour placer le point exact',
+       bonusSkip:'Passer le bonus', bonusConfirm:'Valider le point',
+       bonusResult:(km,pts)=>`à <b>${km} km</b> — +${pts} bonus`,
+       bonusNone:'Pas de bonus.',
+       answerWas:'Le pays était :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
-  es:{ tagline:'tres adivinanzas patrimoniales al día, puntuadas sobre 100', placeholder:'Un sitio o una tradición…',
+  es:{ tagline:'tres adivinanzas patrimoniales al día, puntuadas sobre 100', placeholder:'Escribe un país…',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
        readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`Propuesta más cercana: <b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','País','Descripción'],
+       guessCount:(n)=>`${n} / 6 intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
        win:'Acertado', winSub:(n)=>`Resuelto en ${n} intento${n===1?'':'s'}.`, lose:'Ronda terminada',
        loseSub:'La respuesta era:', nextRound:'Siguiente ronda', learnMore:'Saber más',
-       finalTitle:'El Unescle de hoy', finalSub:(s)=>`Puntuación: ${s} / 100`, playTomorrow:'Vuelve mañana para tres nuevas rondas.',
+       finalTitle:'El Heritle de hoy', finalSub:(s)=>`Puntuación: ${s} / 100`, playTomorrow:'Vuelve mañana para tres nuevas rondas.',
        tier:{1:'Ampliamente reconocido',2:'Moderadamente conocido',3:'Joya oculta'},
        photoFallback:'Foto aún no cargada — añade images/{id}.jpg desde el pipeline de datos.',
        
        continents:{EU:'Europa',AS:'Asia',AF:'África',NA:'América del Norte',SA:'América del Sur',OC:'Oceanía',AN:'Antártida'},
        categories:{cultural:'Sitio cultural',natural:'Sitio natural',mixed:'Sitio mixto',site:'Sitio patrimonial',intangible:'Tradición viva'},
        unknown:'Desconocido',
+       regions:{N:'Norte',S:'Sur',E:'Este',W:'Oeste',C:'Centro'},
+       regionOf:(dir,cont)=>`${cont} — ${dir}`,
+       bonusPrompt:'Bonus — toca el mapa para marcar el punto exacto',
+       bonusSkip:'Omitir bonus', bonusConfirm:'Confirmar punto',
+       bonusResult:(km,pts)=>`a <b>${km} km</b> — +${pts} bonus`,
+       bonusNone:'Sin bonus.',
+       answerWas:'El país era:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
 };
 let lang = 'en';
@@ -372,6 +393,7 @@ function normaliseEntry(e, countries){
   return {
     id: e.id, type: e.type, tier: e.tier, lat: e.lat, lng: e.lng,
     year: e.year, approx: e.approx, image: e.image,
+    continentCode: e.continent,
     names: e.names,
     aliases: e.aliases || [],
     country:   per(l => country ? country[l] : (UI[l].unknown)),
@@ -384,6 +406,50 @@ function normaliseEntry(e, countries){
 let POOL = FALLBACK_DATA;
 let BY_ID = new Map();
 let targets = [];
+/* The guessing vocabulary. Players guess countries, never site names: with
+   ~1,270 inscriptions, most of them places nobody could name unprompted, the
+   name was never a fair thing to ask for. The map is the puzzle. */
+let COUNTRIES = [];
+
+/* Region is derived here rather than stored, so it needs no pipeline field and
+   can never contradict the coordinate it describes. It's the compass sector of
+   the entry within its continent -- broad enough to narrow the search without
+   naming the answer. */
+function regionOf(entry){
+  const T = t();
+  // The demo set stores continent names rather than codes, so fall back to a
+  // reverse lookup off the English name.
+  const code = entry.continentCode ||
+    Object.keys(UI.en.continents).find(k => UI.en.continents[k] === (entry.continent||{}).en);
+  const cont = (UI[lang].continents[code]) || (entry.continent||{})[lang] || UI[lang].unknown;
+  const band = CONTINENT_BANDS[code];
+  if(!band) return cont;
+  const vert = entry.lat >= band.lat[1] ? 'N' : (entry.lat <= band.lat[0] ? 'S' : null);
+  const horiz = entry.lng >= band.lng[1] ? 'E' : (entry.lng <= band.lng[0] ? 'W' : null);
+  const dirKey = vert || horiz || 'C';
+  return T.regionOf(T.regions[dirKey], cont);
+}
+
+/* Tercile cut points per continent, so "Northern"/"Eastern" mean something
+   relative to that landmass rather than to the globe. */
+const CONTINENT_BANDS = {
+  EU: { lat:[45, 55],   lng:[0, 25] },
+  AS: { lat:[20, 40],   lng:[60, 105] },
+  AF: { lat:[-10, 15],  lng:[5, 30] },
+  NA: { lat:[20, 45],   lng:[-110, -80] },
+  SA: { lat:[-25, -5],  lng:[-70, -50] },
+  OC: { lat:[-30, -15], lng:[135, 165] },
+  AN: { lat:[-80, -70], lng:[-60, 60] }
+};
+
+function buildCountries(table){
+  // Only countries with a coordinate can be guessed — every guess is measured
+  // from the country's centroid to the target.
+  return Object.entries(table)
+    .filter(([, c]) => typeof c.lat === 'number' && typeof c.lng === 'number')
+    .map(([qid, c]) => ({ id: qid, lat: c.lat, lng: c.lng,
+                          names: { en: c.en, fr: c.fr, es: c.es } }));
+}
 
 /* ---------- Day / targets (one per tier) ---------- */
 const EPOCH = Date.UTC(2024,0,1);
@@ -400,12 +466,35 @@ function pickForDay(pool, tier){
   return pool[Math.abs(h) % pool.length];
 }
 
+/* Each day's three rounds: which type, and how obscure.
+   Two material to one intangible tracks the pools (~1,270 sites to ~850
+   elements), so neither runs dry ahead of the other, and the tiers ramp from
+   widely recognised to hidden gem across the day. */
+const ROUND_PLAN = [
+  { type: 'material',   tier: 1 },
+  { type: 'immaterial', tier: 2 },
+  { type: 'material',   tier: 3 }
+];
+
 function computeTargets(){
   BY_ID = new Map(POOL.map(d => [d.id, d]));
-  targets = [1,2,3].map(tier => pickForDay(POOL.filter(d => d.tier === tier), tier))
-                   .filter(Boolean);
-  // A pool missing a whole tier shouldn't cost the player a round.
-  while(targets.length < 3 && POOL.length) targets.push(pickForDay(POOL, targets.length + 7));
+  const used = new Set();
+  targets = ROUND_PLAN.map((plan, i) => {
+    // Narrow to type+tier, then relax rather than leave a round unfillable:
+    // type+tier -> type -> tier -> anything.
+    const tries = [
+      POOL.filter(d => d.type === plan.type && d.tier === plan.tier),
+      POOL.filter(d => d.type === plan.type),
+      POOL.filter(d => d.tier === plan.tier),
+      POOL
+    ];
+    for(const pool of tries){
+      const fresh = pool.filter(d => !used.has(d.id));
+      const pick = pickForDay(fresh.length ? fresh : pool, i);
+      if(pick){ used.add(pick.id); return pick; }
+    }
+    return null;
+  }).filter(Boolean);
 }
 
 async function loadDataset(){
@@ -416,22 +505,40 @@ async function loadDataset(){
     const entries = (data.entries || []).filter(e => e && e.id && typeof e.lat === 'number');
     if(entries.length < 3) throw new Error('too few entries');
     if(data.meta && data.meta.synthetic){
-      console.warn('Unescle: this dataset.json is SYNTHETIC test data, not the real pipeline output.');
+      console.warn('Heritle: this dataset.json is SYNTHETIC test data, not the real pipeline output.');
     }
     POOL = entries.map(e => normaliseEntry(e, data.countries || {}));
+    COUNTRIES = buildCountries(data.countries || {});
   }catch(err){
     // file://, missing pipeline output, or malformed JSON — play the demo set.
-    console.warn('Unescle: falling back to the built-in demo set —', err.message);
+    console.warn('Heritle: falling back to the built-in demo set —', err.message);
     POOL = FALLBACK_DATA;
+    COUNTRIES = [];
+  }
+  if(!COUNTRIES.length){
+    // The demo set carries country names inline and no centroids; approximate
+    // each country by the entries that sit in it so the game is still playable.
+    const acc = new Map();
+    POOL.forEach(d => {
+      const key = d.country.en;
+      const rec = acc.get(key) || { id:'demo-' + key, names:d.country, lat:0, lng:0, n:0 };
+      rec.lat += d.lat; rec.lng += d.lng; rec.n++;
+      acc.set(key, rec);
+    });
+    COUNTRIES = [...acc.values()].map(r => ({ id:r.id, names:r.names,
+                                              lat:r.lat / r.n, lng:r.lng / r.n }));
   }
   computeTargets();
 }
 
 /* ---------- State ---------- */
-const STORAGE_KEY = `unescle-${dayIndex}`;
+const STORAGE_KEY = `heritle-${dayIndex}`;
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || JSON.stringify({
   round: 0, guesses: [[],[],[]], roundStatus: [null,null,null], roundScore: [0,0,0]
 }));
+// Fields added after a player may already have saved state for today.
+if(!Array.isArray(state.bonusKm)) state.bonusKm = [null,null,null];
+if(typeof state.bonusOpen !== 'boolean') state.bonusOpen = false;
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 /* ---------- Geo math ---------- */
@@ -495,6 +602,13 @@ function addTargetPin(lat,lng){
 
 /* ---------- Rendering ---------- */
 function currentTarget(){ return targets[state.round]; }
+function targetCountry(){
+  const tg = currentTarget();
+  if(!tg) return null;
+  // Match the country record by name: the dataset keys by QID, the demo set
+  // has no QIDs, and the name is what both agree on.
+  return COUNTRIES.find(c => c.names.en === tg.country.en) || null;
+}
 function currentGuesses(){ return state.guesses[state.round]; }
 function roundFinished(){ return state.roundStatus[state.round] !== null; }
 
@@ -552,7 +666,7 @@ function render(){
 
 function renderClues(target){
   const T = t();
-  const keys = ['continent','category','year','country','clue'];
+  const keys = ['continent','category','year','region','clue'];
   const box = document.getElementById('clues'); box.innerHTML = '';
   keys.forEach((key,i)=>{
     const unlocked = currentGuesses().length > i || roundFinished();
@@ -563,7 +677,7 @@ function renderClues(target){
       if(key==='continent') value = target.continent[lang];
       else if(key==='category') value = target.category[lang];
       else if(key==='year') value = target.year ? `${Math.floor(target.year/10)*10}s` : '—';
-      else if(key==='country') value = target.country[lang];
+      else if(key==='region') value = regionOf(target);
       else if(key==='clue') value = (target.clue && target.clue[lang]) || '—';
     }
     div.innerHTML = `<span class="label">${T.clueLabels[i]}</span>${value}`;
@@ -575,7 +689,7 @@ function renderHistory(){
   const T = t();
   const box = document.getElementById('history'); box.innerHTML = '';
   [...currentGuesses()].reverse().forEach(g=>{
-    const entry = BY_ID.get(g.id);
+    const entry = COUNTRIES.find(c=>c.id===g.id);
     if(!entry) return;  // stored guess from a previous pool
     const row = document.createElement('div'); row.className = 'hist-row';
     row.innerHTML = `<span class="hist-dot" style="background:${heatColorVar[g.bucket]}"></span>
@@ -587,10 +701,16 @@ function renderHistory(){
 function renderMapForRound(){
   buildMap();
   currentGuesses().forEach((g,i)=>{
-    const e = BY_ID.get(g.id);
+    const e = COUNTRIES.find(c=>c.id===g.id);
     if(e) addPin(e.lat, e.lng, g.bucket, i===currentGuesses().length-1);
   });
-  if(roundFinished()) addTargetPin(currentTarget().lat, currentTarget().lng);
+  if(roundFinished()){
+    const b = state.bonusKm[state.round];
+    if(b) addPin(b.lat, b.lng, 'mid', false);   // where the player pinned
+    addTargetPin(currentTarget().lat, currentTarget().lng);
+  }
+  document.getElementById('mapSvg').style.cursor =
+    (state.bonusOpen && roundFinished()) ? 'crosshair' : '';
   const T = t();
   const readout = document.getElementById('mapReadout');
   if(!currentGuesses().length){ readout.textContent = T.readoutStart; }
@@ -606,18 +726,79 @@ function renderRoundResult(){
   box.hidden = false;
   const solved = state.roundStatus[state.round] === 'solved';
   const grid = currentGuesses().map(g=>heatEmoji[g.bucket]).join(' ');
+  const bonus = state.bonusKm[state.round];
+  // The site name is the reward, not the puzzle: it is revealed either way,
+  // alongside the country that was the actual answer.
+  const reveal = `<p>${T.answerWas} <b>${target.country[lang]}</b><br>
+                  <span style="color:var(--cream)">${target.names[lang]}</span></p>`;
+  let bonusBlock = '';
+  if(solved && state.bonusOpen){
+    bonusBlock = `<p id="bonusPrompt">${T.bonusPrompt}</p>
+                  <button class="btn secondary" id="skipBonusBtn">${T.bonusSkip}</button>`;
+  } else if(bonus !== null && bonus !== undefined){
+    bonusBlock = `<p>${T.bonusResult(bonus.km, bonus.pts)}</p>`;
+  } else if(solved){
+    bonusBlock = `<p>${T.bonusNone}</p>`;
+  }
   box.innerHTML = `
     <span class="tier-badge">${T.tier[target.tier]}</span>
     <h2>${solved ? T.win : T.lose}</h2>
-    <p>${solved ? T.winSub(currentGuesses().length) : T.loseSub + ' ' + target.names[lang]}</p>
+    <p>${solved ? T.winSub(currentGuesses().length) : ''}</p>
+    ${reveal}
     <div class="share-grid">${grid}</div>
-    <button class="btn" id="nextBtn">${T.nextRound}</button>
-    <button class="btn secondary" id="learnBtn">${T.learnMore}</button>`;
-  document.getElementById('nextBtn').onclick = ()=>{ state.round++; saveState(); render(); };
-  document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
+    ${bonusBlock}
+    ${state.bonusOpen && solved ? '' :
+      `<button class="btn" id="nextBtn">${T.nextRound}</button>
+       <button class="btn secondary" id="learnBtn">${T.learnMore}</button>`}`;
+  if(!(state.bonusOpen && solved)){
+    document.getElementById('nextBtn').onclick = ()=>{
+      state.round++; state.bonusOpen = false; saveState(); render();
+    };
+    document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
+  } else {
+    document.getElementById('skipBonusBtn').onclick = ()=>{
+      state.bonusOpen = false; saveState(); render();
+    };
+  }
   document.getElementById('guessInput').disabled = true;
   document.getElementById('suggestions').style.display='none';
 }
+
+/* ---------- Region bonus ----------
+   Naming the country ends the round; this is the precision round. One tap on
+   the map, scored by how close the pin lands, worth the remaining 20% of the
+   round. Optional — skipping just forfeits it. */
+const BONUS_FULL_KM = 50;    // at or under this, full bonus
+const BONUS_ZERO_KM = 1500;  // beyond this, nothing
+
+function bonusPoints(km){
+  if(km <= BONUS_FULL_KM) return 1;
+  if(km >= BONUS_ZERO_KM) return 0;
+  return 1 - (km - BONUS_FULL_KM) / (BONUS_ZERO_KM - BONUS_FULL_KM);
+}
+
+function unproject(x, y){
+  return { lat: 90 - (y / MAP_H) * 180, lng: (x / MAP_W) * 360 - 180 };
+}
+
+function handleBonusTap(evt){
+  if(!state.bonusOpen || !roundFinished()) return;
+  const svg = document.getElementById('mapSvg');
+  const rect = svg.getBoundingClientRect();
+  const x = ((evt.clientX - rect.left) / rect.width) * MAP_W;
+  const y = ((evt.clientY - rect.top) / rect.height) * MAP_H;
+  const p = unproject(x, y);
+  const target = currentTarget();
+  const km = Math.round(haversineKm(p.lat, p.lng, target.lat, target.lng));
+  const frac = bonusPoints(km);
+  const pts = Math.round(frac * (100/3) * 0.2);
+  state.roundScore[state.round] += frac * (100/3) * 0.2;
+  state.bonusKm[state.round] = { km, pts, lat: p.lat, lng: p.lng };
+  state.bonusOpen = false;
+  saveState();
+  render();
+}
+document.getElementById('mapSvg').addEventListener('click', handleBonusTap);
 
 function renderFinal(){
   const T = t();
@@ -647,7 +828,7 @@ function renderFinal(){
     linksBox.appendChild(b);
   });
   document.getElementById('shareBtn').onclick = ()=>{
-    const text = `Unescle — Day #${dayIndex}\n${lines}\n${totalScore()}/100`;
+    const text = `Heritle — Day #${dayIndex}\n${lines}\n${totalScore()}/100`;
     navigator.clipboard?.writeText(text);
   };
 }
@@ -688,19 +869,25 @@ document.getElementById('modalClose').addEventListener('click', ()=> document.ge
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') e.currentTarget.classList.remove('open'); });
 
 /* ---------- Guessing ---------- */
-function submitGuess(entry){
+function submitGuess(country){
   if(state.round >= 3 || roundFinished()) return;
   const guesses = currentGuesses();
-  if(guesses.some(g=>g.id===entry.id)) return;
-  const target = currentTarget();
-  const km = Math.round(haversineKm(entry.lat, entry.lng, target.lat, target.lng));
-  const brg = bearing(entry.lat, entry.lng, target.lat, target.lng);
-  const isCorrect = entry.id === target.id;
-  guesses.push({ id: entry.id, km: isCorrect ? 0 : km, bearing: brg, bucket: isCorrect ? 'correct' : heatBucket(km) });
+  if(guesses.some(g=>g.id===country.id)) return;
+  const target = currentTarget(), answer = targetCountry();
+  // Distance runs from the guessed country to the *site*, so the heat keeps
+  // pointing at the real place even once you are in the right country.
+  const km = Math.round(haversineKm(country.lat, country.lng, target.lat, target.lng));
+  const brg = bearing(country.lat, country.lng, target.lat, target.lng);
+  const isCorrect = answer ? country.id === answer.id
+                           : country.names.en === target.country.en;
+  guesses.push({ id: country.id, km, bearing: brg,
+                 bucket: isCorrect ? 'correct' : heatBucket(km) });
 
   if(isCorrect){
     state.roundStatus[state.round] = 'solved';
-    state.roundScore[state.round] = GUESS_FRACTIONS[guesses.length-1] * (100/3);
+    // 80% of the round is the country; the pin bonus can earn the last 20%.
+    state.roundScore[state.round] = GUESS_FRACTIONS[guesses.length-1] * (100/3) * 0.8;
+    state.bonusOpen = true;
   } else if(guesses.length >= 6){
     state.roundStatus[state.round] = 'failed';
     state.roundScore[state.round] = 0;
@@ -719,10 +906,9 @@ input.addEventListener('input', ()=>{
   suggBox.innerHTML = '';
   if(q.length < 2 || roundFinished()){ suggBox.style.display='none'; return; }
   const guessedIds = new Set(currentGuesses().map(g=>g.id));
-  const matches = POOL.filter(d=>{
-    if(guessedIds.has(d.id)) return false;
-    const haystack = [d.names.en, d.names.fr, d.names.es, ...d.aliases].join(' ').toLowerCase();
-    return haystack.includes(q);
+  const matches = COUNTRIES.filter(c=>{
+    if(guessedIds.has(c.id)) return false;
+    return [c.names.en, c.names.fr, c.names.es].join(' ').toLowerCase().includes(q);
   }).slice(0,6);
   if(!matches.length){ suggBox.style.display='none'; return; }
   matches.forEach(m=>{
@@ -744,7 +930,8 @@ input.addEventListener('keydown', e=>{
   if(e.key==='Enter'){
     const q = input.value.trim().toLowerCase();
     const guessedIds = new Set(currentGuesses().map(g=>g.id));
-    const exact = POOL.find(d=>!guessedIds.has(d.id) && [d.names.en,d.names.fr,d.names.es,...d.aliases].some(n=>n.toLowerCase()===q));
+    const exact = COUNTRIES.find(c=>!guessedIds.has(c.id) &&
+      [c.names.en,c.names.fr,c.names.es].some(n=>n.toLowerCase()===q));
     if(exact) submitGuess(exact);
   }
 });

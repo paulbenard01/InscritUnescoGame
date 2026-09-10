@@ -1,5 +1,5 @@
 """
-Unescle dataset + image builder.
+Heritle dataset + image builder.
 
 Pulls World Heritage Sites and Intangible Cultural Heritage elements from
 Wikidata via SPARQL, downloads a freely-licensed thumbnail per entry from
@@ -31,7 +31,7 @@ continents come from a single query over the distinct country QIDs rather than
 riding along on every item row.
 
 *Categorical fields are codes, not prose.* continent, category and type are
-emitted as stable codes ("EU", "cultural", ...) and translated in unescle.html's
+emitted as stable codes ("EU", "cultural", ...) and translated in heritle.html's
 i18n table. Only per-entry text that genuinely varies -- names, country names,
 descriptions -- is translated here. That guarantees the clue tiles read
 correctly in all three languages even where Wikidata's fr/es coverage is thin,
@@ -64,9 +64,9 @@ import requests
 print = functools.partial(print, flush=True)  # keep stdout ordered against stderr
 
 # Wikimedia requires a descriptive User-Agent with contact info or it will
-# start rejecting requests. Override with UNESCLE_CONTACT once the repo is public.
-CONTACT = os.environ.get("UNESCLE_CONTACT", "paulbenard01@gmail.com")
-HEADERS = {"User-Agent": f"Unescle/1.0 ({CONTACT}; personal heritage guessing game)"}
+# start rejecting requests. Override with HERITLE_CONTACT once the repo is public.
+CONTACT = os.environ.get("HERITLE_CONTACT", "paulbenard01@gmail.com")
+HEADERS = {"User-Agent": f"Heritle/1.0 ({CONTACT}; personal heritage guessing game)"}
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -129,6 +129,8 @@ SELECT ?item
        (GROUP_CONCAT(DISTINCT ?continentEn_; separator="%(sep)s") AS ?continentEn)
        (GROUP_CONCAT(DISTINCT ?image_;       separator="%(sep)s") AS ?image)
        (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
+       (GROUP_CONCAT(DISTINCT ?siteId_;      separator="%(sep)s") AS ?siteId)
+       (GROUP_CONCAT(DISTINCT ?officialUrl_; separator="%(sep)s") AS ?officialUrl)
 WHERE {
   {
     SELECT DISTINCT ?item WHERE { ?item p:P1435/ps:P1435 wd:%(qid)s . }
@@ -145,6 +147,14 @@ WHERE {
   OPTIONAL { ?item wdt:P18 ?image_ . }
   OPTIONAL { ?item wikibase:sitelinks ?sitelinks_ . }
   OPTIONAL { ?item wdt:P17 ?country_ . }
+  # P757 is the official World Heritage site number -- the exact join key to
+  # the published list. Intangible elements have no equivalent property, so any
+  # statement pointing at an official element page stands in for one.
+  OPTIONAL { ?item wdt:P757 ?siteId_ . }
+  OPTIONAL {
+    ?item ?anyProp_ ?officialUrl_ .
+    FILTER(isIRI(?officialUrl_) && CONTAINS(STR(?officialUrl_), "ich.unesco.org"))
+  }
   OPTIONAL { ?item p:P1435 [ ps:P1435 wd:%(qid)s ; pq:P580 ?inscribed_ ] . }
   # lat and lon are paired before sampling: an item with two coordinate
   # statements must not mix the latitude of one with the longitude of the other.
@@ -173,6 +183,100 @@ SELECT ?item ?alt WHERE {
   FILTER(lang(?alt) IN ("en", "fr", "es"))
 }
 """
+
+# The published World Heritage list, used to keep only genuine inscriptions.
+OFFICIAL_WHS_URL = "https://whc.unesco.org/en/list/xml/"
+
+
+def official_inscriptions():
+    """Parent site numbers on the published World Heritage list.
+
+    Only identifiers are read -- no titles or descriptions are copied into the
+    dataset, so nothing of theirs is redistributed. Wikidata's designation
+    property is applied far more loosely than the published list (1,946 items
+    against 1,273 inscriptions), sweeping in components of serial sites and
+    buildings that were never inscribed, so without this gate the game labels
+    things as World Heritage Sites that are not.
+    """
+    import xml.etree.ElementTree as ET
+    try:
+        r = requests.get(OFFICIAL_WHS_URL, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r.raise_for_status()
+        root = ET.fromstring(r.content)
+    except (requests.RequestException, ET.ParseError) as exc:
+        print(f"  WARNING: could not read the official list ({exc}); "
+              f"keeping every designated item.", file=sys.stderr)
+        return None
+    ids = set()
+    for row in root.iter():
+        if row.tag.lower() not in ("row", "site"):
+            continue
+        for child in row:
+            if child.tag.lower() in ("id_number", "id") and (child.text or "").strip():
+                stem = re.match(r"(\d+)", child.text.strip())
+                if stem:
+                    ids.add(stem.group(1))
+                break
+    print(f"  official list: {len(ids)} inscriptions")
+    return ids or None
+
+
+def parent_site_id(sid):
+    """Wikidata's P757 carries suffixes the published list doesn't -- '1bis',
+    '1153rev', '813-001', '1558-2023'. All name the same inscription as their
+    numeric stem."""
+    m = re.match(r"(\d+)", str(sid).strip())
+    return m.group(1) if m else None
+
+
+def filter_to_official(items):
+    """Drop anything not on the published list, and collapse serial-site
+    components onto the inscription they belong to."""
+    official = official_inscriptions()
+    if not official:
+        return items
+
+    kept, no_id, unlisted = {}, 0, 0
+    by_inscription = {}
+    for qid, it in items.items():
+        if it["type"] != "material":
+            kept[qid] = it
+            continue
+        stems = {parent_site_id(s) for s in it["site_ids"]} - {None}
+        if not stems:
+            no_id += 1
+            continue
+        listed = stems & official
+        if not listed:
+            unlisted += 1
+            continue
+        stem = sorted(listed)[0]
+        it["site_id"] = stem
+        # One entry per inscription: prefer the item that *is* the inscription
+        # (an unsuffixed id), then the better-known one.
+        exact = any(str(x).strip() == stem for x in it["site_ids"])
+        rank = (1 if exact else 0, int(it.get("sitelinks") or 0))
+        prev = by_inscription.get(stem)
+        if prev is None or rank > prev[0]:
+            by_inscription[stem] = (rank, qid, it)
+
+    for _rank, qid, it in by_inscription.values():
+        kept[qid] = it
+    material_in = sum(1 for i in items.values() if i["type"] == "material")
+    merged = material_in - no_id - unlisted - len(by_inscription)
+    print(f"  material: {material_in} -> {len(by_inscription)} inscriptions "
+          f"({no_id} with no site number, {unlisted} not on the list, "
+          f"{merged} merged as components/duplicates)")
+
+    # Intangible elements have no equivalent identifier property on Wikidata.
+    # Report how many at least link to an official element page, but don't gate
+    # on it: a partly-populated property would silently delete real elements.
+    imm = [i for i in items.values() if i["type"] == "immaterial"]
+    linked = sum(1 for i in imm if i["official_urls"])
+    print(f"  intangible: {len(imm)} kept, {linked} of which link to an official "
+          f"element page (no identifier property to filter on)")
+    return kept
+
 
 # Everything country-shaped in one batched query: names for the lookup table,
 # a coordinate for entries that have none of their own (intangible elements are
@@ -659,6 +763,8 @@ def to_entry(it, seen_ids, coverage):
             entry["year"] = int(m.group(1))
     if it.get("approx_location"):
         entry["approx"] = True
+    if it.get("site_id"):
+        entry["siteId"] = it["site_id"]
 
     aliases = {a for vals in it["aliases"].values() for a in vals}
     aliases |= set(entry["names"].values())
@@ -668,7 +774,7 @@ def to_entry(it, seen_ids, coverage):
 
 def main():
     global FIXTURES
-    ap = argparse.ArgumentParser(description="Build the Unescle dataset.")
+    ap = argparse.ArgumentParser(description="Build the Heritle dataset.")
     ap.add_argument("--limit", type=int, help="cap items per designation (smoke test)")
     ap.add_argument("--skip-images", action="store_true",
                     help="skip Commons entirely: no photo URLs, no downloads")
@@ -676,6 +782,8 @@ def main():
                     help="also save local copies under images/ (adds ~550 MB at "
                          "the default width; the game prefers them when present)")
     ap.add_argument("--fixture", help="replay recorded responses from this dir (offline)")
+    ap.add_argument("--keep-unofficial", action="store_true",
+                    help="skip the official-list filter and keep every designated item")
     ap.add_argument("--out", default="data/dataset.json")
     args = ap.parse_args()
 
@@ -702,6 +810,10 @@ def main():
         print(f"\n{len(dual)} item(s) carry both designations; kept the first:")
         for q, kept, skipped in dual[:10]:
             print(f"  {q}: kept {kept}, skipped {skipped}")
+
+    if not args.keep_unofficial and not FIXTURES:
+        print("\nFiltering to the official list...")
+        all_items = filter_to_official(all_items)
 
     print("\nResolving countries...")
     countries = resolve_countries(all_items)
@@ -736,12 +848,25 @@ def main():
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 
-    country_table = {
-        q: {"en": r.get("en") or q,
-            "fr": r.get("fr") or r.get("en") or q,
-            "es": r.get("es") or r.get("en") or q}
-        for q, r in countries.items() if r.get("en") or r.get("fr") or r.get("es")
-    }
+    # Countries are the guessing vocabulary, so each one needs a coordinate:
+    # the game measures every guess from the country's centroid to the target.
+    # A country with no coordinate can't be guessed, so it's counted and named.
+    country_table = {}
+    no_coord = []
+    for q, r in countries.items():
+        if not (r.get("en") or r.get("fr") or r.get("es")):
+            continue
+        rec = {"en": r.get("en") or q,
+               "fr": r.get("fr") or r.get("en") or q,
+               "es": r.get("es") or r.get("en") or q}
+        if r.get("coord"):
+            rec["lat"], rec["lng"] = round(r["coord"][0], 4), round(r["coord"][1], 4)
+        else:
+            no_coord.append(rec["en"])
+        country_table[q] = rec
+    if no_coord:
+        print(f"  {len(no_coord)} countries have no coordinate and can't be guessed: "
+              f"{', '.join(sorted(no_coord)[:8])}", file=sys.stderr)
 
     n = len(dataset) or 1
     meta = {
