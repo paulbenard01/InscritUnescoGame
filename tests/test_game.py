@@ -109,6 +109,62 @@ def main():
                 check(not errors, "no uncaught page errors", "; ".join(errors[:3]))
                 ctx.close()
 
+            # ---- mobile ----------------------------------------------------
+            # Regression guards for defects found at real phone widths: iOS
+            # auto-zoom on a sub-16px input, sub-44px tap targets, and the
+            # suggestion list rendering below the fold once the keyboard opens.
+            print("\n== mobile ==")
+            metrics_js = """
+              () => {
+                const px = el => parseFloat(getComputedStyle(el).fontSize);
+                const h = sel => Math.round(document.querySelector(sel).getBoundingClientRect().height);
+                return {
+                  over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+                  inputFont: px(document.getElementById('guessInput')),
+                  langH: h('.lang-btn'),
+                  inputH: h('#guessInput'),
+                };
+              }
+            """
+            for label, w, h in [("iPhone SE", 320, 568), ("Android", 360, 740),
+                                ("iPhone 14", 390, 844), ("iPhone Max", 430, 932),
+                                ("landscape", 740, 360)]:
+                ctx = browser.new_context(viewport={"width": w, "height": h},
+                                          has_touch=True, is_mobile=True)
+                page = ctx.new_page()
+                page.goto(base); page.wait_for_timeout(600)
+                m = page.evaluate(metrics_js)
+                check(m["over"] <= 0, f"{label}: no horizontal overflow", f"{m['over']}px")
+                # Under 16px, iOS Safari zooms the page in on focus and stays there.
+                check(m["inputFont"] >= 16, f"{label}: input >=16px (no iOS zoom)",
+                      str(m["inputFont"]))
+                check(m["langH"] >= 44, f"{label}: language button >=44px", str(m["langH"]))
+                check(m["inputH"] >= 44, f"{label}: guess box >=44px", str(m["inputH"]))
+                ctx.close()
+
+            # The suggestion list must stay on screen with the keyboard open.
+            # The viewport is shrunk to stand in for the room a keyboard leaves.
+            visible_js = """
+              () => {
+                const s = document.querySelector('.suggestion');
+                if (!s) return null;
+                const b = s.getBoundingClientRect();
+                return b.top >= 0 && b.bottom <= innerHeight;
+              }
+            """
+            for label, w, h in [("iPhone SE", 320, 308), ("Android", 360, 480),
+                                ("landscape", 740, 200)]:
+                ctx = browser.new_context(viewport={"width": w, "height": h},
+                                          has_touch=True, is_mobile=True)
+                page = ctx.new_page()
+                page.goto(base); page.wait_for_timeout(600)
+                page.tap("#guessInput")
+                page.fill("#guessInput", page.evaluate("POOL[0].names.en")[:6])
+                page.wait_for_timeout(900)
+                check(page.evaluate(visible_js) is True,
+                      f"{label} +keyboard: first suggestion on screen")
+                ctx.close()
+
             # file:// -- fetch() is blocked, so the built-in demo set must take over.
             print("\n== file:// fallback ==")
             ctx = browser.new_context(); page = ctx.new_page()

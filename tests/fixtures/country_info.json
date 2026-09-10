@@ -1,0 +1,186 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q43"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "Türkiye",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Turquie",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "Turquía",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "39.0,35.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q837"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "Nepal",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Népal",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "Nepal",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "28.0,84.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q218"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "Romania",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Roumanie",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "Rumania",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "46.0,25.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Europe",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "Spain",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Espagne",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "España",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "40.0,-4.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Europe",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q878"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "United Arab Emirates",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Émirats arabes unis",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "Emiratos Árabes Unidos",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "24.0,54.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q668"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "India",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Inde",
+     "xml:lang": "fr"
+    },
+    "cEs": {
+     "type": "literal",
+     "value": "India",
+     "xml:lang": "es"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "21.0,78.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,39 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q170471"
+    },
+    "alt": {
+     "type": "literal",
+     "value": "Cappadocia",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q170471"
+    },
+    "alt": {
+     "type": "literal",
+     "value": "Cappadoce",
+     "xml:lang": "fr"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q193036"
+    },
+    "alt": {
+     "type": "literal",
+     "value": "Flamenco dance",
+     "xml:lang": "en"
+    }
+   }
+  ]
+ }
+}

@@ -117,12 +117,30 @@ python tests/test_game.py                                            # end-to-en
 ```
 
 `tests/fixtures/` holds recorded-shape SPARQL responses covering the cases that
-actually break: cross-product rows, missing coordinates, absent FR/ES labels,
-non-ASCII names, id collisions and NC licences. `tests/test_game.py` serves the
-repo, plays a full three-round game in Chromium at desktop and mobile widths,
-and checks the `file://` fallback path. `tests/make_synthetic_dataset.py`
-generates a full-size (~2,100 entry) stand-in dataset, tiered by the pipeline's
-own function.
+actually break: missing and malformed coordinates, absent FR/ES labels,
+non-ASCII names, id collisions, dual-designated items and NC licences.
+`tests/test_game.py` serves the repo, plays a full three-round game in Chromium
+at desktop and mobile widths, and checks the `file://` fallback path.
+`tests/make_synthetic_dataset.py` generates a full-size (~2,100 entry) stand-in
+dataset, tiered by the pipeline's own function.
+
+### Mobile
+
+The suite checks five phone viewports (320–430px plus landscape) for horizontal
+overflow and tap-target size, and checks that the suggestion list stays on
+screen with the keyboard open. Three things it guards against, all found by
+measuring rather than by eye:
+
+- **iOS auto-zoom.** Safari zooms the page in — and does not zoom back — when a
+  focused input's font-size is under 16px. The guess box was 14.88px.
+- **Tap targets.** The language buttons were 26px tall; interactive controls are
+  now 44px on coarse pointers.
+- **Keyboard occlusion.** On a 360×740 phone the first suggestion rendered below
+  the fold once the keyboard opened. Focusing the guess box now scrolls the row
+  to centre, and the list is height-capped and scrollable.
+
+Layout uses `100dvh` and `env(safe-area-inset-*)` so the iOS URL bar and the
+notch don't eat content.
 
 ## Known gap: the dataset has not been built
 

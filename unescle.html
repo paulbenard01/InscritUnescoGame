@@ -15,9 +15,17 @@
   }
   *{box-sizing:border-box;}
   body{
-    margin:0; min-height:100vh; background:var(--navy); color:var(--ink);
-    font-family:'Inter',sans-serif; display:flex; justify-content:center; padding:28px 14px 64px;
+    margin:0; min-height:100vh; min-height:100dvh; background:var(--navy); color:var(--ink);
+    font-family:'Inter',sans-serif; display:flex; justify-content:center;
+    /* dvh so the iOS URL bar can't add phantom height; env() keeps content
+       clear of the notch and home indicator, which matters in landscape. */
+    padding:28px 14px 64px;
+    padding-left:max(14px, env(safe-area-inset-left));
+    padding-right:max(14px, env(safe-area-inset-right));
+    padding-bottom:max(64px, calc(env(safe-area-inset-bottom) + 40px));
+    -webkit-tap-highlight-color:rgba(201,162,75,0.25);
   }
+  button{touch-action:manipulation;}
   .page{width:100%;max-width:480px;}
   header{text-align:center;margin-bottom:16px;}
   .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--cream);}
@@ -62,7 +70,8 @@
   #guessInput:focus{outline:none;border-color:var(--gold);}
   #guessInput::placeholder{color:var(--ink-dim);}
   .suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--navy-3);
-    border:1px solid var(--gold-dim);border-radius:8px;overflow:hidden;z-index:5;}
+    border:1px solid var(--gold-dim);border-radius:8px;overflow:hidden;z-index:5;
+    max-height:45vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
   .suggestion{padding:9px 14px;font-size:0.86rem;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);}
   .suggestion:last-child{border-bottom:none;}
   .suggestion:hover{background:rgba(201,162,75,0.14);}
@@ -79,7 +88,7 @@
   .history{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
   .hist-row{background:var(--navy-2);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;font-size:0.8rem;}
   .hist-dot{width:11px;height:11px;border-radius:50%;flex:none;}
-  .hist-name{flex:1;color:var(--cream);}
+  .hist-name{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--cream);}
   .hist-km{font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:var(--ink-dim);}
 
   .round-result, .final-result{background:var(--navy-2);border:1px solid var(--gold);border-radius:10px;
@@ -94,6 +103,20 @@
   .share-grid{font-family:'JetBrains Mono',monospace;font-size:1rem;line-height:1.5;margin-bottom:10px;white-space:pre-line;}
 
   footer{text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--ink-dim);}
+
+  /* Touch targets. Anything below 16px in an input makes iOS Safari zoom the
+     page on focus and never zoom back, so the guess box goes to 16px exactly;
+     controls go to the 44px minimum. Desktop keeps its original sizing. */
+  @media (pointer: coarse), (max-width: 560px){
+    #guessInput{font-size:16px;}
+    .lang-btn{padding:12px 20px;min-height:44px;font-size:0.78rem;}
+    .suggestion{padding:0 14px;min-height:46px;display:flex;align-items:center;}
+    .btn{min-height:44px;padding:12px 20px;}
+    .modal-close{min-height:44px;}
+  }
+  .suggestion:active{background:rgba(201,162,75,0.22);}
+  .btn:active{filter:brightness(0.88);}
+  .lang-btn:active{background:rgba(201,162,75,0.2);}
 
   .modal-backdrop{position:fixed;inset:0;background:rgba(10,14,26,0.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:20;}
   .modal-backdrop.open{display:flex;}
@@ -646,6 +669,14 @@ input.addEventListener('input', ()=>{
     suggBox.appendChild(div);
   });
   suggBox.style.display='block';
+});
+input.addEventListener('focus', ()=>{
+  // The on-screen keyboard shrinks the visual viewport a beat after focus.
+  // Centring the guess row keeps the suggestion list above the keyboard rather
+  // than under it — on a 360x740 phone the first suggestion was off-screen.
+  setTimeout(()=>{
+    document.querySelector('.guess-row').scrollIntoView({ block:'center', behavior:'smooth' });
+  }, 250);
 });
 input.addEventListener('keydown', e=>{
   if(e.key==='Enter'){

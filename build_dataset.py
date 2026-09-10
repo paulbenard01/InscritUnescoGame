@@ -12,14 +12,23 @@ Wikimedia Commons, and writes:
 
 Design notes
 ------------
-*Pagination.* One query with six OPTIONAL blocks over ~1,300 items reliably
-exceeds the 60s WDQS timeout, so the spine of each query is an ORDER BY'd
-subquery with LIMIT/OFFSET and the OPTIONALs hang off that. Pages are fetched
-one at a time with backoff.
+*One row per item.* Several OPTIONAL blocks in one query produce a cross
+product: an item with three aliases per language, two images and six criteria
+comes back as hundreds of identical-but-for-one-field rows. Multi-valued fields
+are GROUP_CONCAT'd and single-valued ones SAMPLE'd, so each item returns exactly
+one row -- which is what keeps a 250-item page from timing out.
 
-*Row grouping.* Multiple OPTIONALs produce a cross product -- an item with two
-images and two countries comes back as four rows. Rows are grouped by QID and
-merged, rather than being treated as one entry each.
+*Pagination.* The spine of each query is an ORDER BY'd subquery with
+LIMIT/OFFSET; the rest hangs off it. Pages are fetched one at a time with
+backoff on 429/5xx.
+
+*Coordinates are sampled as a pair.* An item with two P625 statements could
+otherwise take its latitude from one and its longitude from the other, landing
+the pin in the sea. lat and lon are concatenated before sampling.
+
+*Countries are resolved once, in a batch.* Country labels, coordinates and
+continents come from a single query over the distinct country QIDs rather than
+riding along on every item row.
 
 *Categorical fields are codes, not prose.* continent, category and type are
 emitted as stable codes ("EU", "cultural", ...) and translated in unescle.html's
@@ -40,6 +49,7 @@ Run:     python build_dataset.py
          python build_dataset.py --fixture tests/fixtures  # offline, no network
 """
 import argparse
+import functools
 import json
 import os
 import re
@@ -50,6 +60,8 @@ from collections import Counter, defaultdict
 from urllib.parse import unquote
 
 import requests
+
+print = functools.partial(print, flush=True)  # keep stdout ordered against stderr
 
 # Wikimedia requires a descriptive User-Agent with contact info or it will
 # start rejecting requests. Override with UNESCLE_CONTACT once the repo is public.
@@ -62,19 +74,21 @@ COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 # Heritage designations (P1435 values).
 #   Q9259    -- World Heritage Site
 #   Q1459900 -- Intangible Cultural Heritage element
-# If a first live run returns a wildly different count than EXPECTED_ROWS below,
-# the designation item is probably wrong -- check what P1435 actually points at
-# on a known entry before trusting the output.
+# A handful of items carry both designations; the first one wins (see main()).
+# If a run returns far fewer than `expected`, the designation item is probably
+# wrong -- check what P1435 actually points at on a known entry.
 DESIGNATIONS = [
     ("Q9259", "material", 1273),
     ("Q1459900", "immaterial", 849),
 ]
 
 PAGE_SIZE = 250
+ALIASES_PER_LANG = 4
 IMAGE_WIDTH = 640          # photo box renders at <=480 CSS px; 640 covers retina
 REQUEST_TIMEOUT = 90
 MAX_RETRIES = 5
 COMMONS_DELAY = 0.4        # be polite; raise if Commons starts 429ing
+SEP = "|~|"                # GROUP_CONCAT separator, unlikely inside a label
 
 # Non-commercial / non-free licence markers, matched case-insensitively against
 # Commons' LicenseShortName. Entries matching these are flagged, never dropped.
@@ -86,65 +100,80 @@ NONCOMMERCIAL_PATTERNS = [
 # SPARQL
 # ---------------------------------------------------------------------------
 
-# The inner subquery is the pagination spine; everything else is optional so a
-# missing coordinate or image never drops the row.
 QUERY_TEMPLATE = """
-SELECT ?item ?labelEn ?labelFr ?labelEs ?descEn ?descFr ?descEs
-       ?altEn ?altFr ?altEs ?lat ?lon ?image ?sitelinks ?inscribed
-       ?country ?countryEn ?countryFr ?countryEs
-       ?continent ?continentEn ?criterionEn WHERE {
+SELECT ?item
+       (SAMPLE(?labelEn_) AS ?labelEn)
+       (SAMPLE(?labelFr_) AS ?labelFr)
+       (SAMPLE(?labelEs_) AS ?labelEs)
+       (SAMPLE(?descEn_)  AS ?descEn)
+       (SAMPLE(?descFr_)  AS ?descFr)
+       (SAMPLE(?descEs_)  AS ?descEs)
+       (SAMPLE(?coord_)   AS ?coord)
+       (SAMPLE(?sitelinks_) AS ?sitelinks)
+       (SAMPLE(?inscribed_) AS ?inscribed)
+       (GROUP_CONCAT(DISTINCT ?country_;     separator="%(sep)s") AS ?country)
+       (GROUP_CONCAT(DISTINCT ?continentEn_; separator="%(sep)s") AS ?continentEn)
+       (GROUP_CONCAT(DISTINCT ?image_;       separator="%(sep)s") AS ?image)
+       (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
+WHERE {
   {
     SELECT ?item WHERE { ?item p:P1435/ps:P1435 wd:%(qid)s . }
     ORDER BY ?item
     LIMIT %(limit)d
     OFFSET %(offset)d
   }
-  OPTIONAL { ?item rdfs:label ?labelEn . FILTER(lang(?labelEn)="en") }
-  OPTIONAL { ?item rdfs:label ?labelFr . FILTER(lang(?labelFr)="fr") }
-  OPTIONAL { ?item rdfs:label ?labelEs . FILTER(lang(?labelEs)="es") }
-  OPTIONAL { ?item schema:description ?descEn . FILTER(lang(?descEn)="en") }
-  OPTIONAL { ?item schema:description ?descFr . FILTER(lang(?descFr)="fr") }
-  OPTIONAL { ?item schema:description ?descEs . FILTER(lang(?descEs)="es") }
-  OPTIONAL { ?item skos:altLabel ?altEn . FILTER(lang(?altEn)="en") }
-  OPTIONAL { ?item skos:altLabel ?altFr . FILTER(lang(?altFr)="fr") }
-  OPTIONAL { ?item skos:altLabel ?altEs . FILTER(lang(?altEs)="es") }
-  OPTIONAL { ?item wdt:P18 ?image . }
-  OPTIONAL { ?item wikibase:sitelinks ?sitelinks . }
-  OPTIONAL { ?item p:P625/psv:P625 [ wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ] . }
-  OPTIONAL { ?item p:P1435 [ ps:P1435 wd:%(qid)s ; pq:P580 ?inscribed ] . }
+  OPTIONAL { ?item rdfs:label ?labelEn_ . FILTER(lang(?labelEn_)="en") }
+  OPTIONAL { ?item rdfs:label ?labelFr_ . FILTER(lang(?labelFr_)="fr") }
+  OPTIONAL { ?item rdfs:label ?labelEs_ . FILTER(lang(?labelEs_)="es") }
+  OPTIONAL { ?item schema:description ?descEn_ . FILTER(lang(?descEn_)="en") }
+  OPTIONAL { ?item schema:description ?descFr_ . FILTER(lang(?descFr_)="fr") }
+  OPTIONAL { ?item schema:description ?descEs_ . FILTER(lang(?descEs_)="es") }
+  OPTIONAL { ?item wdt:P18 ?image_ . }
+  OPTIONAL { ?item wikibase:sitelinks ?sitelinks_ . }
+  OPTIONAL { ?item wdt:P17 ?country_ . }
+  OPTIONAL { ?item p:P1435 [ ps:P1435 wd:%(qid)s ; pq:P580 ?inscribed_ ] . }
+  # lat and lon are paired before sampling: an item with two coordinate
+  # statements must not mix the latitude of one with the longitude of the other.
   OPTIONAL {
-    ?item wdt:P17 ?country .
-    OPTIONAL { ?country rdfs:label ?countryEn . FILTER(lang(?countryEn)="en") }
-    OPTIONAL { ?country rdfs:label ?countryFr . FILTER(lang(?countryFr)="fr") }
-    OPTIONAL { ?country rdfs:label ?countryEs . FILTER(lang(?countryEs)="es") }
+    ?item p:P625/psv:P625 [ wikibase:geoLatitude ?lat_ ; wikibase:geoLongitude ?lon_ ] .
+    BIND(CONCAT(STR(?lat_), ",", STR(?lon_)) AS ?coord_)
   }
   OPTIONAL {
-    ?item wdt:P30 ?continent .
-    OPTIONAL { ?continent rdfs:label ?continentEn . FILTER(lang(?continentEn)="en") }
+    ?item wdt:P30 ?continent_ .
+    ?continent_ rdfs:label ?continentEn_ . FILTER(lang(?continentEn_)="en")
   }
   OPTIONAL {
-    ?item wdt:P2614 ?criterion .
-    OPTIONAL { ?criterion rdfs:label ?criterionEn . FILTER(lang(?criterionEn)="en") }
+    ?item wdt:P2614 ?criterion_ .
+    ?criterion_ rdfs:label ?criterionEn_ . FILTER(lang(?criterionEn_)="en")
   }
+}
+GROUP BY ?item
+"""
+
+# Aliases feed the autocomplete. Kept out of the main query because three
+# languages of multi-valued altLabel is the worst cross-product offender.
+ALIAS_QUERY = """
+SELECT ?item ?alt WHERE {
+  VALUES ?item { %s }
+  ?item skos:altLabel ?alt .
+  FILTER(lang(?alt) IN ("en", "fr", "es"))
 }
 """
 
-# Coordinate fallback for entries with no P625 of their own -- overwhelmingly
-# intangible elements, which are practices rather than places. One batched
-# query rather than one request per country.
-COUNTRY_COORD_QUERY = """
-SELECT ?country ?lat ?lon WHERE {
+# Everything country-shaped in one batched query: names for the lookup table,
+# a coordinate for entries that have none of their own (intangible elements are
+# practices rather than places, so most lack P625), and a continent fallback.
+COUNTRY_INFO_QUERY = """
+SELECT ?country ?cEn ?cFr ?cEs ?coord ?contEn WHERE {
   VALUES ?country { %s }
-  ?country p:P625/psv:P625 [ wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ] .
-}
-"""
-
-# Continent fallback: derive from the country when the item has no P30.
-COUNTRY_CONTINENT_QUERY = """
-SELECT ?country ?continentEn WHERE {
-  VALUES ?country { %s }
-  ?country wdt:P30 ?continent .
-  ?continent rdfs:label ?continentEn . FILTER(lang(?continentEn)="en")
+  OPTIONAL { ?country rdfs:label ?cEn . FILTER(lang(?cEn)="en") }
+  OPTIONAL { ?country rdfs:label ?cFr . FILTER(lang(?cFr)="fr") }
+  OPTIONAL { ?country rdfs:label ?cEs . FILTER(lang(?cEs)="es") }
+  OPTIONAL {
+    ?country p:P625/psv:P625 [ wikibase:geoLatitude ?lat ; wikibase:geoLongitude ?lon ] .
+    BIND(CONCAT(STR(?lat), ",", STR(?lon)) AS ?coord)
+  }
+  OPTIONAL { ?country wdt:P30 ?cont . ?cont rdfs:label ?contEn . FILTER(lang(?contEn)="en") }
 }
 """
 
@@ -163,19 +192,17 @@ class Fixtures:
             return json.load(fh)
 
     def sparql(self, query):
-        if "VALUES ?country" in query and "P625" in query:
-            return self._load("country_coords.json") or {"results": {"bindings": []}}
+        if "skos:altLabel" in query:
+            return self._load("aliases.json") or {"results": {"bindings": []}}
         if "VALUES ?country" in query:
-            return self._load("country_continents.json") or {"results": {"bindings": []}}
+            return self._load("country_info.json") or {"results": {"bindings": []}}
         qid = re.search(r"wd:(Q\d+)", query)
-        offset = int(re.search(r"OFFSET (\d+)", query).group(1))
-        if offset > 0:  # fixtures are a single page
-            return {"results": {"bindings": []}}
+        if int(re.search(r"OFFSET (\d+)", query).group(1)) > 0:
+            return {"results": {"bindings": []}}  # fixtures are a single page
         return self._load(f"{qid.group(1)}.json") or {"results": {"bindings": []}}
 
     def imageinfo(self, filename):
-        data = self._load("commons.json") or {}
-        return data.get(filename)
+        return (self._load("commons.json") or {}).get(filename)
 
 
 FIXTURES = None
@@ -217,8 +244,28 @@ def val(row, key):
     return v if v not in ("", None) else None
 
 
+def multi(row, key):
+    """Split a GROUP_CONCAT'd binding back into a list."""
+    v = val(row, key)
+    return [p for p in v.split(SEP) if p] if v else []
+
+
 def qid_of(uri):
     return uri.rsplit("/", 1)[-1] if uri else None
+
+
+def parse_coord(s):
+    """'12.5,-3.25' -> (12.5, -3.25); None when absent or malformed."""
+    if not s:
+        return None
+    try:
+        lat, lon = s.split(",")
+        lat, lon = float(lat), float(lon)
+    except ValueError:
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    return lat, lon
 
 
 # ---------------------------------------------------------------------------
@@ -229,16 +276,19 @@ CONTINENT_CODES = {
     "europe": "EU", "asia": "AS", "africa": "AF", "north america": "NA",
     "south america": "SA", "oceania": "OC", "australia": "OC",
     "antarctica": "AN", "insular oceania": "OC", "americas": "NA",
+    "eurasia": "EU", "australian continent": "OC",
 }
 
 CULTURAL_CRITERIA = {"i", "ii", "iii", "iv", "v", "vi"}
 NATURAL_CRITERIA = {"vii", "viii", "ix", "x"}
 
 
-def continent_code(label):
-    if not label:
-        return None
-    return CONTINENT_CODES.get(label.strip().lower())
+def continent_code(labels):
+    for label in labels:
+        code = CONTINENT_CODES.get((label or "").strip().lower())
+        if code:
+            return code
+    return None
 
 
 def category_code(kind, criteria):
@@ -251,8 +301,7 @@ def category_code(kind, criteria):
         m = re.search(r"\(([ivx]+)\)", (label or "").lower())
         if m:
             found.add(m.group(1))
-    has_c = bool(found & CULTURAL_CRITERIA)
-    has_n = bool(found & NATURAL_CRITERIA)
+    has_c, has_n = bool(found & CULTURAL_CRITERIA), bool(found & NATURAL_CRITERIA)
     if has_c and has_n:
         return "mixed"
     if has_n:
@@ -280,98 +329,110 @@ def is_noncommercial(license_name):
 
 
 # ---------------------------------------------------------------------------
-# Fetch + group
+# Fetch
 # ---------------------------------------------------------------------------
 
+def fetch_aliases(qids):
+    """altLabels for one page of items, capped per language."""
+    if not qids:
+        return {}
+    out = defaultdict(lambda: defaultdict(list))
+    values = " ".join(f"wd:{q}" for q in qids)
+    for row in sparql(ALIAS_QUERY % values):
+        q = qid_of(val(row, "item"))
+        cell = row.get("alt") or {}
+        lang, text = cell.get("xml:lang"), cell.get("value")
+        if q and lang and text and len(out[q][lang]) < ALIASES_PER_LANG:
+            out[q][lang].append(text)
+    return out
+
+
 def fetch_designation(qid, kind, limit=None):
-    """Page through one designation, merging the OPTIONAL cross product per item."""
+    """Page through one designation. The query returns one row per item."""
     items = {}
     offset = 0
     page_size = min(PAGE_SIZE, limit) if limit else PAGE_SIZE
 
     while True:
-        rows = sparql(QUERY_TEMPLATE % {"qid": qid, "limit": page_size, "offset": offset})
+        rows = sparql(QUERY_TEMPLATE % {"qid": qid, "limit": page_size,
+                                        "offset": offset, "sep": SEP})
         if not rows:
             break
 
-        seen_this_page = set()
+        page = {}
         for row in rows:
             q = qid_of(val(row, "item"))
             if not q:
                 continue
-            seen_this_page.add(q)
-            it = items.setdefault(q, {
-                "qid": q, "type": kind, "aliases": {"en": set(), "fr": set(), "es": set()},
-                "criteria": set(), "images": [],
-            })
-            for lang in ("En", "Fr", "Es"):
-                key = lang.lower()
-                if val(row, f"label{lang}"):
-                    it.setdefault("names", {})[key] = val(row, f"label{lang}")
-                if val(row, f"desc{lang}"):
-                    it.setdefault("desc", {})[key] = val(row, f"desc{lang}")
-                if val(row, f"alt{lang}"):
-                    it["aliases"][key].add(val(row, f"alt{lang}"))
-            for key, src in (("lat", "lat"), ("lng", "lon"), ("sitelinks", "sitelinks"),
-                             ("inscribed", "inscribed")):
-                if val(row, src) and key not in it:
-                    it[key] = val(row, src)
-            if val(row, "country") and "country_qid" not in it:
-                it["country_qid"] = qid_of(val(row, "country"))
-                it["country"] = {
-                    "en": val(row, "countryEn"),
-                    "fr": val(row, "countryFr"),
-                    "es": val(row, "countryEs"),
-                }
-            if val(row, "continentEn") and "continent_label" not in it:
-                it["continent_label"] = val(row, "continentEn")
-            if val(row, "criterionEn"):
-                it["criteria"].add(val(row, "criterionEn"))
-            img = val(row, "image")
-            if img and img not in it["images"]:
-                it["images"].append(img)
+            it = {
+                "qid": q,
+                "type": kind,
+                "names": {l: val(row, f"label{l.title()}") for l in ("en", "fr", "es")},
+                "desc": {l: val(row, f"desc{l.title()}") for l in ("en", "fr", "es")},
+                "sitelinks": val(row, "sitelinks"),
+                "inscribed": val(row, "inscribed"),
+                "country_qid": qid_of(multi(row, "country")[0]) if multi(row, "country") else None,
+                "continent_labels": multi(row, "continentEn"),
+                "criteria": multi(row, "criterionEn"),
+                "images": multi(row, "image"),
+                "aliases": {"en": [], "fr": [], "es": []},
+            }
+            coord = parse_coord(val(row, "coord"))
+            if coord:
+                it["lat"], it["lng"] = coord
+            page[q] = it
 
+        aliases = fetch_aliases(list(page))
+        for q, it in page.items():
+            for lang, vals in aliases.get(q, {}).items():
+                it["aliases"][lang] = vals
+
+        items.update(page)
         offset += page_size
         print(f"  {kind}: {len(items)} items after offset {offset}")
         if limit and len(items) >= limit:
             break
-        if len(seen_this_page) < page_size / 4:
-            # Last page: the cross product means row count is a poor end signal,
-            # but a page yielding very few distinct items means we ran out.
-            if len(rows) < page_size:
-                break
+        if len(rows) < page_size:
+            break
     return items
 
 
-def resolve_country_fallbacks(items):
-    """Task 2: fill lat/lng from the linked country, and continent likewise."""
-    need_coord = {it["country_qid"] for it in items.values()
-                  if "lat" not in it and it.get("country_qid")}
-    need_continent = {it["country_qid"] for it in items.values()
-                      if not it.get("continent_label") and it.get("country_qid")}
+def resolve_countries(items):
+    """Batch-resolve every referenced country: names, centroid, continent."""
+    qids = sorted({it["country_qid"] for it in items.values() if it.get("country_qid")})
+    info = {}
+    if not qids:
+        return info
+    # VALUES lists of a few hundred are fine in one query.
+    for chunk in (qids[i:i + 400] for i in range(0, len(qids), 400)):
+        values = " ".join(f"wd:{q}" for q in chunk)
+        for row in sparql(COUNTRY_INFO_QUERY % values):
+            q = qid_of(val(row, "country"))
+            if not q:
+                continue
+            rec = info.setdefault(q, {})
+            for key, src in (("en", "cEn"), ("fr", "cFr"), ("es", "cEs")):
+                if val(row, src):
+                    rec.setdefault(key, val(row, src))
+            if val(row, "coord") and "coord" not in rec:
+                rec["coord"] = parse_coord(val(row, "coord"))
+            if val(row, "contEn") and "continent" not in rec:
+                rec["continent"] = val(row, "contEn")
+    print(f"  resolved {len(info)}/{len(qids)} countries")
 
-    coords, continents = {}, {}
-    if need_coord:
-        values = " ".join(f"wd:{q}" for q in sorted(need_coord))
-        for row in sparql(COUNTRY_COORD_QUERY % values):
-            coords[qid_of(val(row, "country"))] = (val(row, "lat"), val(row, "lon"))
-        print(f"  country-coordinate fallback: resolved {len(coords)}/{len(need_coord)} countries")
-    if need_continent:
-        values = " ".join(f"wd:{q}" for q in sorted(need_continent))
-        for row in sparql(COUNTRY_CONTINENT_QUERY % values):
-            continents.setdefault(qid_of(val(row, "country")), val(row, "continentEn"))
-        print(f"  continent fallback: resolved {len(continents)}/{len(need_continent)} countries")
-
-    filled = 0
+    filled_coord = filled_cont = 0
     for it in items.values():
-        cq = it.get("country_qid")
-        if "lat" not in it and cq in coords:
-            it["lat"], it["lng"] = coords[cq]
+        rec = info.get(it.get("country_qid")) or {}
+        if "lat" not in it and rec.get("coord"):
+            it["lat"], it["lng"] = rec["coord"]
             it["approx_location"] = True
-            filled += 1
-        if not it.get("continent_label") and cq in continents:
-            it["continent_label"] = continents[cq]
-    print(f"  filled {filled} missing coordinates from country centroids")
+            filled_coord += 1
+        if not it["continent_labels"] and rec.get("continent"):
+            it["continent_labels"] = [rec["continent"]]
+            filled_cont += 1
+    print(f"  filled {filled_coord} coordinates and {filled_cont} continents "
+          f"from the linked country")
+    return info
 
 
 # ---------------------------------------------------------------------------
@@ -411,7 +472,7 @@ def commons_imageinfo(filename):
 
 def download_image(entry, image_uris, out_dir="images"):
     """Attach the first usable Commons photo. Licence + attribution always ride
-    along with the file -- task 5 depends on this never being dropped."""
+    along with the file -- the credit line in-game depends on it."""
     for uri in image_uris[:3]:
         filename = unquote(uri.split("/")[-1]).replace("_", " ")
         info = commons_imageinfo(filename)
@@ -433,12 +494,11 @@ def download_image(entry, image_uris, out_dir="images"):
                     f.write(img.content)
             except requests.RequestException:
                 continue
-        credit = info["artist"] or info["credit"] or "Wikimedia Commons"
         entry["image"] = {
             "path": path,
             "file": filename,
             "license": info["license"],
-            "credit": credit,
+            "credit": info["artist"] or info["credit"] or "Wikimedia Commons",
             "source": info["descriptionurl"],
         }
         if is_noncommercial(info["license"]):
@@ -460,7 +520,7 @@ def percentile(sorted_vals, pct):
 
 
 def assign_tiers(entries, cuts=(1 / 3, 2 / 3)):
-    """Task 3: tier 1 = widely recognized ... 3 = hidden gem.
+    """Tier 1 = widely recognized ... 3 = hidden gem.
 
     Split per type, and by *rank* rather than by sitelink value.
 
@@ -491,9 +551,9 @@ def assign_tiers(entries, cuts=(1 / 3, 2 / 3)):
         vals = sorted(e["sitelinks"] for e in group)
         b1 = group[c1 - 1]["sitelinks"] if c1 else "-"
         b2 = group[c2 - 1]["sitelinks"] if c2 else "-"
+        counts = Counter(e["tier"] for e in group)
         print(f"  {kind}: n={n} min={vals[0]} median={percentile(vals, 50):.0f} max={vals[-1]}")
         print(f"    tier1 >= {b1} sitelinks | tier2 >= {b2} | tier3 below that")
-        counts = Counter(e["tier"] for e in group)
         print(f"    tier1={counts[1]} tier2={counts[2]} tier3={counts[3]}")
         if b1 == b2:
             print(f"    NOTE: {kind} tier boundaries fall on the same sitelink count "
@@ -505,7 +565,7 @@ def assign_tiers(entries, cuts=(1 / 3, 2 / 3)):
 # ---------------------------------------------------------------------------
 
 def to_entry(it, seen_ids, coverage):
-    names = it.get("names", {})
+    names = {l: v for l, v in it["names"].items() if v}
     name_en = names.get("en") or names.get("fr") or names.get("es")
     if not name_en or "lat" not in it:
         return None  # unusable: no name at all, or no coordinate even after fallback
@@ -515,16 +575,16 @@ def to_entry(it, seen_ids, coverage):
         slug = f"{slug}-{it['qid'].lower()}"
     seen_ids.add(slug)
 
-    desc = it.get("desc", {})
+    desc = {l: v for l, v in it["desc"].items() if v}
     entry = {
         "id": slug,
         "qid": it["qid"],
         "type": it["type"],
         "names": {},
-        "lat": round(float(it["lat"]), 4),
-        "lng": round(float(it["lng"]), 4),
+        "lat": round(it["lat"], 4),
+        "lng": round(it["lng"], 4),
         "sitelinks": int(it.get("sitelinks") or 0),
-        "continent": continent_code(it.get("continent_label")),
+        "continent": continent_code(it["continent_labels"]),
         "category": category_code(it["type"], it["criteria"]),
     }
 
@@ -532,12 +592,10 @@ def to_entry(it, seen_ids, coverage):
         entry["names"][lang] = names.get(lang) or name_en
         coverage["names"][lang] += 1 if names.get(lang) else 0
         if desc.get(lang):
-            entry.setdefault("desc", {})[lang] = desc[lang]
             coverage["desc"][lang] += 1
-    if "desc" in entry:  # fall back to English so no language shows an empty clue
-        fallback = entry["desc"].get("en") or next(iter(entry["desc"].values()))
-        for lang in ("en", "fr", "es"):
-            entry["desc"].setdefault(lang, fallback)
+    if desc:  # fall back to English so no language shows an empty clue
+        fallback = desc.get("en") or next(iter(desc.values()))
+        entry["desc"] = {l: desc.get(l) or fallback for l in ("en", "fr", "es")}
 
     if it.get("country_qid"):
         entry["country"] = it["country_qid"]
@@ -548,27 +606,10 @@ def to_entry(it, seen_ids, coverage):
     if it.get("approx_location"):
         entry["approx"] = True
 
-    aliases = set()
-    for lang in ("en", "fr", "es"):
-        aliases |= set(list(it["aliases"][lang])[:4])
-    aliases |= {v for v in entry["names"].values()}
+    aliases = {a for vals in it["aliases"].values() for a in vals}
+    aliases |= set(entry["names"].values())
     entry["aliases"] = sorted({a for a in aliases if a})[:10]
     return entry
-
-
-def build_country_table(items):
-    """One shared en/fr/es lookup instead of repeating country names ~2,000 times."""
-    table = {}
-    for it in items.values():
-        cq = it.get("country_qid")
-        if not cq or cq in table or not it.get("country"):
-            continue
-        c = it["country"]
-        en = c.get("en") or c.get("fr") or c.get("es")
-        if not en:
-            continue
-        table[cq] = {"en": en, "fr": c.get("fr") or en, "es": c.get("es") or en}
-    return table
 
 
 def main():
@@ -584,7 +625,7 @@ def main():
         FIXTURES = Fixtures(args.fixture)
         print(f"OFFLINE: replaying fixtures from {args.fixture}")
 
-    all_items = {}
+    all_items, dual = {}, []
     for qid, kind, expected in DESIGNATIONS:
         print(f"\nFetching {kind} ({qid})...")
         items = fetch_designation(qid, kind, limit=args.limit)
@@ -592,19 +633,34 @@ def main():
         if not args.limit and not args.fixture and len(items) < expected * 0.5:
             print(f"  WARNING: expected ~{expected}, got {len(items)}. "
                   f"Check that {qid} is the right P1435 value.", file=sys.stderr)
-        all_items.update(items)
+        # A few items hold both designations. Keep the first and say so, rather
+        # than letting the second silently overwrite it and mislabel its type.
+        for q, it in items.items():
+            if q in all_items:
+                dual.append((q, all_items[q]["type"], kind))
+            else:
+                all_items[q] = it
+    if dual:
+        print(f"\n{len(dual)} item(s) carry both designations; kept the first:")
+        for q, kept, skipped in dual[:10]:
+            print(f"  {q}: kept {kept}, skipped {skipped}")
 
-    print("\nResolving country fallbacks...")
-    resolve_country_fallbacks(all_items)
+    print("\nResolving countries...")
+    countries = resolve_countries(all_items)
 
     coverage = {"names": Counter(), "desc": Counter()}
     seen_ids, dataset = set(), []
+    no_name = no_coord = 0
     for it in sorted(all_items.values(), key=lambda i: i["qid"]):
         entry = to_entry(it, seen_ids, coverage)
         if entry:
             dataset.append(entry)
-    dropped = len(all_items) - len(dataset)
-    print(f"\n{len(dataset)} usable entries ({dropped} dropped: no name or no coordinate)")
+        elif not any(it["names"].values()):
+            no_name += 1
+        else:
+            no_coord += 1
+    print(f"\n{len(dataset)} usable entries from {len(all_items)} items "
+          f"({no_name} dropped for no name, {no_coord} for no coordinate)")
 
     print("\nFame tiers (rank tertiles within each type):")
     assign_tiers(dataset)
@@ -612,14 +668,21 @@ def main():
     if not args.skip_images:
         print("\nDownloading photos...")
         for i, entry in enumerate(dataset, 1):
-            it = all_items[entry["qid"]]
-            if it["images"]:
-                download_image(entry, it["images"])
+            images = all_items[entry["qid"]]["images"]
+            if images:
+                download_image(entry, images)
             if i % 50 == 0:
                 got = sum(1 for e in dataset[:i] if "image" in e)
                 print(f"  {i}/{len(dataset)} processed, {got} photos")
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
+
+    country_table = {
+        q: {"en": r.get("en") or q,
+            "fr": r.get("fr") or r.get("en") or q,
+            "es": r.get("es") or r.get("en") or q}
+        for q, r in countries.items() if r.get("en") or r.get("fr") or r.get("es")
+    }
 
     n = len(dataset) or 1
     meta = {
@@ -629,6 +692,7 @@ def main():
         "withPhoto": sum(1 for e in dataset if "image" in e),
         "approxCoordinates": sum(1 for e in dataset if e.get("approx")),
         "nonCommercialPhotos": sum(1 for e in dataset if e.get("image", {}).get("nonCommercial")),
+        "missingContinent": sum(1 for e in dataset if not e.get("continent")),
         "translationCoverage": {
             field: {lang: round(100 * coverage[field][lang] / n, 1) for lang in ("en", "fr", "es")}
             for field in ("names", "desc")
@@ -637,8 +701,8 @@ def main():
 
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
-        json.dump({"meta": meta, "countries": build_country_table(all_items),
-                   "entries": dataset}, f, ensure_ascii=False, separators=(",", ":"))
+        json.dump({"meta": meta, "countries": country_table, "entries": dataset},
+                  f, ensure_ascii=False, separators=(",", ":"))
 
     nc = [{"id": e["id"], "name": e["names"]["en"], "license": e["image"]["license"],
            "file": e["image"]["file"]}
@@ -647,14 +711,15 @@ def main():
     with open(nc_path, "w", encoding="utf-8") as f:
         json.dump(nc, f, ensure_ascii=False, indent=1)
 
-    print(f"\nWrote {len(dataset)} entries to {args.out}")
-    print(f"  photos: {meta['withPhoto']}  |  country-centroid coords: {meta['approxCoordinates']}")
     cov = meta["translationCoverage"]
+    print(f"\nWrote {len(dataset)} entries to {args.out}")
+    print(f"  photos: {meta['withPhoto']}  |  country-centroid coords: "
+          f"{meta['approxCoordinates']}  |  no continent: {meta['missingContinent']}")
     print(f"  name coverage:  en {cov['names']['en']}%  fr {cov['names']['fr']}%  es {cov['names']['es']}%")
     print(f"  descr coverage: en {cov['desc']['en']}%  fr {cov['desc']['fr']}%  es {cov['desc']['es']}%")
     if cov["names"]["fr"] < 60 or cov["names"]["es"] < 60:
-        print("  WARNING: most entries fall back to the English name in fr/es. "
-              "Worth flagging before shipping as 'trilingual'.", file=sys.stderr)
+        print("  WARNING: a large share of entries fall back to the English name in "
+              "fr/es. Worth flagging before shipping as 'trilingual'.", file=sys.stderr)
     if nc:
         print(f"  {len(nc)} photos are non-commercial-only -- listed in {nc_path} (kept, not dropped)")
 
