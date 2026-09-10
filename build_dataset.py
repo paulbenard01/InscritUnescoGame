@@ -131,7 +131,7 @@ SELECT ?item
        (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
 WHERE {
   {
-    SELECT ?item WHERE { ?item p:P1435/ps:P1435 wd:%(qid)s . }
+    SELECT DISTINCT ?item WHERE { ?item p:P1435/ps:P1435 wd:%(qid)s . }
     ORDER BY ?item
     LIMIT %(limit)d
     OFFSET %(offset)d
@@ -401,12 +401,18 @@ def fetch_designation(qid, kind, limit=None):
             for lang, vals in aliases.get(q, {}).items():
                 it["aliases"][lang] = vals
 
+        before = len(items)
         items.update(page)
         offset += page_size
         print(f"  {kind}: {len(items)} items after offset {offset}")
         if limit and len(items) >= limit:
             break
-        if len(rows) < page_size:
+        # Stop only on an empty page, never on a short one. An item with two
+        # P1435 statements used to appear twice in the (non-DISTINCT) spine, so
+        # a full page of 250 rows yielded ~246 distinct items -- and a
+        # "short page means the end" test then ended pagination on page one,
+        # silently capping the dataset at a fifth of its real size.
+        if len(items) == before:
             break
     return items
 
