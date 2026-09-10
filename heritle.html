@@ -141,6 +141,80 @@
 
   footer{text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--ink-dim);}
 
+  /* ---- navigation between the day, the collection, the passport, the archive ---- */
+  .nav{display:flex;gap:4px;justify-content:center;margin:12px 0 4px;flex-wrap:wrap;}
+  .nav button{background:transparent;border:1px solid transparent;color:var(--ink-dim);
+    font-family:'JetBrains Mono',monospace;font-size:0.66rem;letter-spacing:0.04em;
+    text-transform:uppercase;padding:8px 10px;border-radius:6px;cursor:pointer;min-height:38px;}
+  .nav button.active{color:var(--gold);border-color:var(--gold-dim);}
+  .view{display:none;} .view.active{display:block;}
+
+  .panel-head{text-align:center;margin-bottom:14px;}
+  .panel-head h2{font-family:'Playfair Display',serif;color:var(--cream);margin:0 0 4px;font-size:1.35rem;}
+  .panel-head p{color:var(--ink-dim);font-size:0.8rem;margin:0;}
+
+  /* ---- collection: catalogue cards with accession numbers ---- */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  @media (max-width:400px){ .cards{grid-template-columns:1fr;} }
+  .card{background:var(--navy-2);border:1px solid rgba(201,162,75,0.22);border-radius:9px;overflow:hidden;}
+  .card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--navy-3);}
+  .card .card-body{padding:8px 9px 10px;}
+  .card .acc{font-family:'JetBrains Mono',monospace;font-size:0.58rem;color:var(--gold-dim);
+    letter-spacing:0.06em;display:block;margin-bottom:3px;}
+  .card .card-name{color:var(--cream);font-size:0.82rem;line-height:1.25;margin-bottom:4px;}
+  .card .card-meta{color:var(--ink-dim);font-size:0.68rem;}
+  .card.missed{border-style:dashed;}
+
+  /* ---- passport: one stamp per completed day ---- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px;}
+  .stat{background:var(--navy-2);border:1px solid rgba(201,162,75,0.2);border-radius:8px;
+    padding:9px 5px;text-align:center;}
+  .stat b{display:block;font-family:'Playfair Display',serif;color:var(--cream);font-size:1.25rem;}
+  .stat span{font-family:'JetBrains Mono',monospace;font-size:0.55rem;color:var(--ink-dim);
+    text-transform:uppercase;letter-spacing:0.05em;}
+  .stamps{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;}
+  .stamp{width:52px;height:52px;border-radius:50%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;border:2px dashed;transform:rotate(-6deg);
+    font-family:'JetBrains Mono',monospace;}
+  .stamp b{font-size:0.78rem;line-height:1;}
+  .stamp span{font-size:0.48rem;opacity:0.8;}
+  .stamp.s3{border-color:var(--correct);color:#9ccf9c;}
+  .stamp.s2{border-color:var(--gold);color:var(--gold);}
+  .stamp.s1{border-color:var(--heat-close);color:var(--heat-close);}
+
+  /* ---- achievements ---- */
+  .ach-list{display:flex;flex-direction:column;gap:7px;margin-top:16px;}
+  .ach{display:flex;gap:9px;align-items:flex-start;background:var(--navy-2);border-radius:8px;
+    padding:9px 11px;border:1px solid rgba(201,162,75,0.18);}
+  .ach.locked{opacity:0.45;}
+  .ach .seal{width:26px;height:26px;border-radius:50%;border:1px solid var(--gold-dim);flex:none;
+    display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:0.8rem;}
+  .ach b{display:block;color:var(--cream);font-size:0.82rem;}
+  .ach span{color:var(--ink-dim);font-size:0.7rem;}
+
+  /* ---- archive list ---- */
+  .arch-list{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto;}
+  .arch-row{display:flex;align-items:center;gap:9px;background:var(--navy-2);border-radius:8px;
+    padding:9px 11px;}
+  .arch-day{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--cream);flex:1;}
+  .arch-score{font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--ink-dim);}
+
+  .countdown{text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.72rem;
+    color:var(--ink-dim);margin-top:10px;}
+  .countdown b{color:var(--gold);}
+  .practice-banner{background:rgba(201,162,75,0.12);border:1px dashed var(--gold-dim);
+    border-radius:8px;padding:7px 10px;text-align:center;color:var(--gold);
+    font-family:'JetBrains Mono',monospace;font-size:0.62rem;margin-bottom:12px;letter-spacing:0.05em;}
+  .cb-row{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:14px;
+    font-family:'JetBrains Mono',monospace;font-size:0.66rem;color:var(--ink-dim);}
+  .cb-row input{width:17px;height:17px;accent-color:var(--gold);}
+  /* Colour-blind mode: a glyph rides on every heat dot, so the reading never
+     depends on hue alone. */
+  .hist-dot{position:relative;}
+  body.cb .hist-dot::after{content:attr(data-glyph);position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:var(--navy);}
+  body.cb .share-grid{letter-spacing:0.05em;}
+
   /* Touch targets. Anything below 16px in an input makes iOS Safari zoom the
      page on focus and never zoom back, so the guess box goes to 16px exactly;
      controls go to the 44px minimum. Desktop keeps its original sizing. */
@@ -178,44 +252,62 @@
     </div>
   </header>
 
-  <div class="rounds-row" id="roundsRow"></div>
+  <div class="nav" id="nav"></div>
 
-  <div class="meta-row">
-    <span class="mode-badge" id="modeBadge"></span>
-    <span class="score-badge" id="scoreBadge"></span>
-  </div>
+  <div class="view active" id="viewGame">
+    <div class="rounds-row" id="roundsRow"></div>
 
-  <div class="photo-box" id="photoBox">
-    <img id="siteImg" alt="">
-    <div class="photo-fallback" id="photoFallback">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6"/></svg>
-      <span id="fallbackText"></span>
+    <div class="meta-row">
+      <span class="mode-badge" id="modeBadge"></span>
+      <span class="score-badge" id="scoreBadge"></span>
     </div>
-    <span class="photo-credit" id="photoCredit"></span>
-    <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
-  </div>
 
-  <div class="map-wrap">
-    <svg id="mapSvg" viewBox="0 0 440 220"></svg>
-    <div class="map-zoom">
-      <button id="zoomIn" aria-label="Zoom in">+</button>
-      <button id="zoomOut" aria-label="Zoom out">−</button>
-      <button id="zoomReset" aria-label="Reset view">⤢</button>
+    <div class="photo-box" id="photoBox">
+      <img id="siteImg" alt="">
+      <div class="photo-fallback" id="photoFallback">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 20h18M5 20V9l7-5 7 5v11M9 20v-6h6v6"/></svg>
+        <span id="fallbackText"></span>
+      </div>
+      <span class="photo-credit" id="photoCredit"></span>
+      <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
     </div>
-    <div class="map-readout" id="mapReadout"></div>
+
+    <div class="map-wrap">
+      <svg id="mapSvg" viewBox="0 0 440 220"></svg>
+      <div class="map-zoom">
+        <button id="zoomIn" aria-label="Zoom in">+</button>
+        <button id="zoomOut" aria-label="Zoom out">−</button>
+        <button id="zoomReset" aria-label="Reset view">⤢</button>
+      </div>
+      <div class="map-readout" id="mapReadout"></div>
+    </div>
+
+    <div class="guess-row">
+      <input type="text" id="guessInput" autocomplete="off">
+      <div class="suggestions" id="suggestions" style="display:none;"></div>
+    </div>
+
+    <div class="clues" id="clues"></div>
+    <div class="history" id="history"></div>
+    <div class="round-result" id="roundResult" hidden></div>
+    <div class="final-result" id="finalResult" hidden></div>
+
+
+    <footer id="guessCounter"></footer>
+    <div class="countdown" id="countdown"></div>
   </div>
 
-  <div class="guess-row">
-    <input type="text" id="guessInput" autocomplete="off">
-    <div class="suggestions" id="suggestions" style="display:none;"></div>
+  <div class="view" id="viewCollection"></div>
+  <div class="view" id="viewPassport"></div>
+  <div class="view" id="viewArchive"></div>
+</div>
+
+<div class="modal-backdrop" id="fieldNotesBackdrop">
+  <div class="modal">
+    <h3 id="fnTitle"></h3>
+    <div id="fnBody"></div>
+    <button class="btn modal-close" id="fnClose"></button>
   </div>
-
-  <div class="clues" id="clues"></div>
-  <div class="history" id="history"></div>
-  <div class="round-result" id="roundResult" hidden></div>
-  <div class="final-result" id="finalResult" hidden></div>
-
-  <footer id="guessCounter"></footer>
 </div>
 
 <div class="lightbox" id="lightbox">
@@ -348,6 +440,27 @@ const UI = {
        continents:{EU:'Europe',AS:'Asia',AF:'Africa',NA:'North America',SA:'South America',OC:'Oceania',AN:'Antarctica'},
        categories:{cultural:'Cultural site',natural:'Natural site',mixed:'Mixed site',site:'Heritage site',intangible:'Living tradition'},
        unknown:'Unknown',
+       navGame:'Today', navCollection:'Collection', navPassport:'Passport', navArchive:'Archive',
+       collectionTitle:'My Collection', collectionSub:(n)=>`${n} entries catalogued`,
+       collectionEmpty:'Nothing catalogued yet. Finish a round and the entry is accessioned here.',
+       passportTitle:'Passport', passportSub:'Your record of inscriptions visited',
+       statPlayed:'Days', statStreak:'Streak', statBest:'Best', statAvg:'Avg score',
+       archiveTitle:'Archive', archiveSub:'Replay any past day. Practice runs are not scored.',
+       archiveOpen:'Replay', archiveDone:'catalogued', practiceBadge:'PRACTICE — not scored',
+       nextIn:'Next inscription in', backToToday:'Back to today',
+       achTitle:'Distinctions',
+       ach:{ continents:['Circumnavigator','One entry catalogued on every continent'],
+             perfect:['Full marks','A day scored 100 / 100'],
+             hiddengem:['Sharp eye','A hidden gem found on the first guess'],
+             flawless:['Clean sweep','All three rounds solved in one day'],
+             archivist:['Archivist','25 entries catalogued'] },
+       fieldNotesTitle:'Field Notes', fieldNotesBtn:'Begin',
+       fieldNotes:['Three inscribed sites a day. You are shown a photograph, not a name.',
+                   'Name the country it stands in. Each guess reports its distance and bearing to the site, and whether you have the right continent and region.',
+                   'Find the country and the entry is revealed, then pin the exact spot on the map for a precision bonus.',
+                   'Every entry you meet is accessioned into your collection.'],
+       cbLabel:'Colour-blind marks', settingsTitle:'Settings',
+       scoreOf:(s)=>`${s} / 100`,
        regions:{N:'Northern',S:'Southern',E:'Eastern',W:'Western',C:'Central'},
        regionOf:(dir,cont)=>`${dir} ${cont}`,
        bonusPrompt:'Bonus — tap the map to pin the exact spot',
@@ -369,6 +482,27 @@ const UI = {
        continents:{EU:'Europe',AS:'Asie',AF:'Afrique',NA:'Amérique du Nord',SA:'Amérique du Sud',OC:'Océanie',AN:'Antarctique'},
        categories:{cultural:'Site culturel',natural:'Site naturel',mixed:'Site mixte',site:'Site patrimonial',intangible:'Tradition vivante'},
        unknown:'Inconnu',
+       navGame:'Aujourd’hui', navCollection:'Collection', navPassport:'Passeport', navArchive:'Archives',
+       collectionTitle:'Ma collection', collectionSub:(n)=>`${n} entrées cataloguées`,
+       collectionEmpty:'Rien encore catalogué. Terminez une manche et l’entrée sera inventoriée ici.',
+       passportTitle:'Passeport', passportSub:'Votre registre d’inscriptions visitées',
+       statPlayed:'Jours', statStreak:'Série', statBest:'Record', statAvg:'Score moyen',
+       archiveTitle:'Archives', archiveSub:'Rejouez n’importe quel jour passé. Les parties d’entraînement ne comptent pas.',
+       archiveOpen:'Rejouer', archiveDone:'catalogué', practiceBadge:'ENTRAÎNEMENT — non compté',
+       nextIn:'Prochaine inscription dans', backToToday:'Revenir à aujourd’hui',
+       achTitle:'Distinctions',
+       ach:{ continents:['Tour du monde','Une entrée cataloguée sur chaque continent'],
+             perfect:['Note maximale','Une journée à 100 / 100'],
+             hiddengem:['Œil aiguisé','Un trésor caché trouvé du premier coup'],
+             flawless:['Sans faute','Les trois manches résolues le même jour'],
+             archivist:['Archiviste','25 entrées cataloguées'] },
+       fieldNotesTitle:'Notes de terrain', fieldNotesBtn:'Commencer',
+       fieldNotes:['Trois sites inscrits par jour. On vous montre une photographie, pas un nom.',
+                   'Nommez le pays où il se trouve. Chaque proposition indique sa distance et sa direction, et si le continent et la région sont les bons.',
+                   'Trouvez le pays et l’entrée est révélée, puis placez le point exact sur la carte pour un bonus de précision.',
+                   'Chaque entrée rencontrée est inventoriée dans votre collection.'],
+       cbLabel:'Repères daltoniens', settingsTitle:'Réglages',
+       scoreOf:(s)=>`${s} / 100`,
        regions:{N:'Nord',S:'Sud',E:'Est',W:'Ouest',C:'Centre'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        bonusPrompt:'Bonus — touchez la carte pour placer le point exact',
@@ -390,6 +524,27 @@ const UI = {
        continents:{EU:'Europa',AS:'Asia',AF:'África',NA:'América del Norte',SA:'América del Sur',OC:'Oceanía',AN:'Antártida'},
        categories:{cultural:'Sitio cultural',natural:'Sitio natural',mixed:'Sitio mixto',site:'Sitio patrimonial',intangible:'Tradición viva'},
        unknown:'Desconocido',
+       navGame:'Hoy', navCollection:'Colección', navPassport:'Pasaporte', navArchive:'Archivo',
+       collectionTitle:'Mi colección', collectionSub:(n)=>`${n} entradas catalogadas`,
+       collectionEmpty:'Nada catalogado todavía. Termina una ronda y la entrada se registrará aquí.',
+       passportTitle:'Pasaporte', passportSub:'Tu registro de inscripciones visitadas',
+       statPlayed:'Días', statStreak:'Racha', statBest:'Récord', statAvg:'Puntuación media',
+       archiveTitle:'Archivo', archiveSub:'Vuelve a jugar cualquier día pasado. Las prácticas no puntúan.',
+       archiveOpen:'Rejugar', archiveDone:'catalogado', practiceBadge:'PRÁCTICA — sin puntuar',
+       nextIn:'Próxima inscripción en', backToToday:'Volver a hoy',
+       achTitle:'Distinciones',
+       ach:{ continents:['Vuelta al mundo','Una entrada catalogada en cada continente'],
+             perfect:['Nota máxima','Un día con 100 / 100'],
+             hiddengem:['Ojo agudo','Una joya oculta hallada al primer intento'],
+             flawless:['Sin fallos','Las tres rondas resueltas en un día'],
+             archivist:['Archivero','25 entradas catalogadas'] },
+       fieldNotesTitle:'Notas de campo', fieldNotesBtn:'Empezar',
+       fieldNotes:['Tres sitios inscritos al día. Se te muestra una fotografía, no un nombre.',
+                   'Nombra el país donde está. Cada intento indica su distancia y rumbo, y si el continente y la región son correctos.',
+                   'Acierta el país y la entrada se revela; después marca el punto exacto en el mapa para un bonus de precisión.',
+                   'Cada entrada que encuentras se registra en tu colección.'],
+       cbLabel:'Marcas para daltonismo', settingsTitle:'Ajustes',
+       scoreOf:(s)=>`${s} / 100`,
        regions:{N:'Norte',S:'Sur',E:'Este',W:'Oeste',C:'Centro'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        bonusPrompt:'Bonus — toca el mapa para marcar el punto exacto',
@@ -432,6 +587,7 @@ let targets = [];
    ~1,270 inscriptions, most of them places nobody could name unprompted, the
    name was never a fair thing to ask for. The map is the puzzle. */
 let COUNTRIES = [];
+let COUNTRY_NAMES = {};   // qid -> {en,fr,es}, for catalogue cards after reload
 
 /* Region is derived here rather than stored, so it needs no pipeline field and
    can never contradict the coordinate it describes. It's the compass sector of
@@ -482,7 +638,17 @@ function buildCountries(table){
 /* ---------- Day / targets (one per tier) ---------- */
 const EPOCH = Date.UTC(2024,0,1);
 const now = new Date();
-const dayIndex = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 86400000);
+const todayIndex = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 86400000);
+
+/* ?day=N pins the puzzle to a specific day. It exists for testing and for the
+   archive's replay mode; a visitor who never adds it sees today, exactly as
+   before. ?practice=1 marks a replay that must not touch streaks or scores. */
+const params = new URLSearchParams(location.search);
+const requestedDay = parseInt(params.get('day'), 10);
+const dayIndex = Number.isFinite(requestedDay)
+  ? Math.max(0, Math.min(requestedDay, todayIndex + 3650))
+  : todayIndex;
+const isPractice = dayIndex !== todayIndex || params.get('practice') === '1';
 
 /* Deterministic per-day pick. A plain dayIndex % pool.length would walk the
    fame-sorted pool in order, so consecutive days would be near-identical in
@@ -499,9 +665,9 @@ function pickForDay(pool, tier){
    elements), so neither runs dry ahead of the other, and the tiers ramp from
    widely recognised to hidden gem across the day. */
 const ROUND_PLAN = [
-  { type: 'material',   tier: 1 },
-  { type: 'immaterial', tier: 2 },
-  { type: 'material',   tier: 3 }
+  { type: 'material', tier: 1 },
+  { type: 'material', tier: 2 },
+  { type: 'material', tier: 3 }
 ];
 
 function computeTargets(){
@@ -537,6 +703,7 @@ async function loadDataset(){
     }
     POOL = entries.map(e => normaliseEntry(e, data.countries || {}));
     COUNTRIES = buildCountries(data.countries || {});
+    COUNTRY_NAMES = data.countries || {};
   }catch(err){
     // file://, missing pipeline output, or malformed JSON — play the demo set.
     console.warn('Heritle: falling back to the built-in demo set —', err.message);
@@ -568,6 +735,125 @@ let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || JSON.stringify({
 if(!Array.isArray(state.bonusKm)) state.bonusKm = [null,null,null];
 if(typeof state.bonusOpen !== 'boolean') state.bonusOpen = false;
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+/* ---------- Profile ----------
+   Everything that outlives a single day: the catalogue of entries the player
+   has seen, one record per completed day for the passport, and which
+   achievements have been earned. Kept in one key so a browser only carries a
+   single blob, and read defensively because a returning player may have a
+   profile written by an older version. Practice replays never write here. */
+const PROFILE_KEY = 'heritle-profile';
+
+function loadProfile(){
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}') || {}; }
+  catch(e){ p = {}; }
+  return {
+    collection: p.collection && typeof p.collection === 'object' ? p.collection : {},
+    days:       p.days && typeof p.days === 'object' ? p.days : {},
+    achievements: Array.isArray(p.achievements) ? p.achievements : [],
+    seenFieldNotes: !!p.seenFieldNotes,
+    colorblind: !!p.colorblind
+  };
+}
+let profile = loadProfile();
+function saveProfile(){
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
+  catch(e){ /* private mode: the game still plays, it just won't remember */ }
+}
+
+/* Museum-style accession number: HTL.<year>.<sequence within that year>. */
+function accessionFor(entryId){
+  const rec = profile.collection[entryId];
+  if(!rec) return '';
+  const year = new Date(EPOCH + rec.day * 86400000).getUTCFullYear();
+  const sameYear = Object.values(profile.collection)
+    .filter(r => new Date(EPOCH + r.day * 86400000).getUTCFullYear() === year)
+    .sort((a,b) => (a.day - b.day) || String(a.id).localeCompare(String(b.id)));
+  const n = sameYear.findIndex(r => r.id === entryId) + 1;
+  return `HTL.${year}.${String(n).padStart(3,'0')}`;
+}
+
+function catalogue(entry, solved){
+  if(isPractice) return;                       // replays don't fill the archive
+  if(profile.collection[entry.id]) return;     // first encounter only
+  profile.collection[entry.id] = {
+    id: entry.id, day: dayIndex, solved: !!solved,
+    names: entry.names, country: entry.country, type: entry.type,
+    category: entry.category, year: entry.year,
+    image: entry.image ? { url: entry.image.url, path: entry.image.path,
+                           credit: entry.image.credit, license: entry.image.license } : null,
+    continent: entry.continentCode || contCodeOf(entry)
+  };
+  saveProfile();
+}
+
+function recordDay(){
+  if(isPractice) return;
+  profile.days[dayIndex] = {
+    score: totalScore(),
+    statuses: state.roundStatus.slice(),
+    at: Date.now()
+  };
+  saveProfile();
+}
+
+/* Current and best run of consecutive days played. */
+function streaks(){
+  const days = Object.keys(profile.days).map(Number).sort((a,b)=>a-b);
+  let best = 0, run = 0, prev = null;
+  days.forEach(d => { run = (prev !== null && d === prev + 1) ? run + 1 : 1;
+                      best = Math.max(best, run); prev = d; });
+  // The current streak only counts if it reaches today or yesterday.
+  let current = 0;
+  if(days.length){
+    const last = days[days.length-1];
+    if(last === todayIndex || last === todayIndex - 1){
+      current = 1;
+      for(let i = days.length - 2; i >= 0; i--){
+        if(days[i] === days[i+1] - 1) current++; else break;
+      }
+    }
+  }
+  return { played: days.length, current, best };
+}
+
+/* ---------- Achievements ----------
+   Tied to what the player has actually seen of the world's heritage rather
+   than to how often they open the page. Deliberately few. */
+const ACHIEVEMENTS = [
+  { id:'continents', test:()=> {
+      const seen = new Set(Object.values(profile.collection).map(r=>r.continent).filter(Boolean));
+      return ['EU','AS','AF','NA','SA','OC'].every(c=>seen.has(c));
+    } },
+  { id:'perfect',   test:()=> Object.values(profile.days).some(d=>d.score >= 100) },
+  { id:'hiddengem', test:()=> !!profile.gemFirstGuess },
+  { id:'flawless',  test:()=> Object.values(profile.days).some(d =>
+      d.statuses && d.statuses.length === 3 && d.statuses.every(x=>x==='solved')) },
+  { id:'archivist', test:()=> Object.keys(profile.collection).length >= 25 }
+];
+
+function checkAchievements(){
+  if(isPractice) return [];
+  const fresh = [];
+  ACHIEVEMENTS.forEach(a=>{
+    if(!profile.achievements.includes(a.id) && a.test()){
+      profile.achievements.push(a.id); fresh.push(a.id);
+    }
+  });
+  if(fresh.length) saveProfile();
+  return fresh;
+}
+
+/* ---------- Colour-blind support ----------
+   The heat scale is hue-only, which is exactly the cue that fails for the most
+   common forms of colour blindness. The toggle layers a distinct glyph onto
+   every distance bucket so the reading never depends on hue. */
+const heatGlyph = { correct:'●', hot:'▲', close:'◆', mid:'■', far:'○' };
+function cbOn(){ return !!profile.colorblind; }
+function applyColorblind(){
+  document.body.classList.toggle('cb', cbOn());
+}
 
 /* ---------- Geo math ---------- */
 function haversineKm(lat1,lng1,lat2,lng2){
@@ -781,7 +1067,7 @@ function renderHistory(){
       `<span class="hist-tags">${tag(g.contOk, T.clueLabels[0])}${tag(g.regionOk, T.clueLabels[3])}</span>`;
     // km before the tags: the tags claim a full row, so anything after them
     // wraps onto a third line.
-    row.innerHTML = `<span class="hist-dot" style="background:${heatColorVar[g.bucket]}"></span>
+    row.innerHTML = `<span class="hist-dot" data-glyph="${heatGlyph[g.bucket]||''}" style="background:${heatColorVar[g.bucket]}"></span>
       <span class="hist-name">${entry.names[lang]}</span>
       <span class="hist-km">${g.km} km ${dirLabel(g.bearing)}</span>${tags}`;
     box.appendChild(row);
@@ -961,6 +1247,8 @@ let panMoved = false;
 
 function renderFinal(){
   const T = t();
+  recordDay();
+  checkAchievements();
   document.getElementById('roundsRow').style.display = 'flex';
   document.getElementById('modeBadge').textContent = '';
   document.getElementById('scoreBadge').textContent = '';
@@ -1049,12 +1337,18 @@ function submitGuess(country){
 
   if(isCorrect){
     state.roundStatus[state.round] = 'solved';
+    catalogue(target, true);
+    // "Sharp eye": a tier-3 entry taken on the very first guess.
+    if(target.tier === 3 && guesses.length === 1 && !isPractice){
+      profile.gemFirstGuess = true; saveProfile();
+    }
     // 80% of the round is the country; the pin bonus can earn the last 20%.
     state.roundScore[state.round] = GUESS_FRACTIONS[guesses.length-1] * (100/3) * 0.8;
     state.bonusOpen = true;
   } else if(guesses.length >= 6){
     state.roundStatus[state.round] = 'failed';
     state.roundScore[state.round] = 0;
+    catalogue(target, false);   // revealed on failure still enters the catalogue
   }
   saveState();
   document.getElementById('guessInput').value='';
@@ -1105,12 +1399,169 @@ document.addEventListener('click', e=>{ if(!e.target.closest('.guess-row')) sugg
 document.querySelectorAll('.lang-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active'); lang = btn.dataset.lang; render();
+    btn.classList.add('active'); lang = btn.dataset.lang;
+    render(); renderNav(); renderCountdown();
+    if(currentView !== 'Game') showView(currentView);
   });
 });
 
+/* ---------- Views ---------- */
+let currentView = 'Game';
+
+function renderNav(){
+  const T = t();
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  [['Game',T.navGame],['Collection',T.navCollection],
+   ['Passport',T.navPassport],['Archive',T.navArchive]].forEach(([id,label])=>{
+    const b = document.createElement('button');
+    b.textContent = label;
+    if(id === currentView) b.classList.add('active');
+    b.onclick = ()=> showView(id);
+    nav.appendChild(b);
+  });
+}
+
+function showView(id){
+  currentView = id;
+  ['Game','Collection','Passport','Archive'].forEach(v=>{
+    document.getElementById('view'+v).classList.toggle('active', v===id);
+  });
+  renderNav();
+  if(id==='Collection') renderCollection();
+  if(id==='Passport')   renderPassport();
+  if(id==='Archive')    renderArchive();
+}
+
+function renderCollection(){
+  const T = t();
+  const items = Object.values(profile.collection).sort((a,b)=> b.day - a.day);
+  const box = document.getElementById('viewCollection');
+  if(!items.length){
+    box.innerHTML = `<div class="panel-head"><h2>${T.collectionTitle}</h2>
+      <p>${T.collectionEmpty}</p></div>`;
+    return;
+  }
+  const cards = items.map(r=>{
+    const src = (r.image && (r.image.path || r.image.url)) || '';
+    const country = (COUNTRY_NAMES[r.country] && COUNTRY_NAMES[r.country][lang])
+                    || r.country || '';
+    const cat = (UI[lang].categories[r.category]) || '';
+    return `<div class="card${r.solved ? '' : ' missed'}">
+      ${src ? `<img src="${src}" alt="" loading="lazy"
+                onerror="this.style.display='none'">` : ''}
+      <div class="card-body">
+        <span class="acc">${accessionFor(r.id)}</span>
+        <div class="card-name">${(r.names && r.names[lang]) || r.id}</div>
+        <div class="card-meta">${[country, cat, r.year].filter(Boolean).join(' · ')}</div>
+      </div></div>`;
+  }).join('');
+  box.innerHTML = `<div class="panel-head"><h2>${T.collectionTitle}</h2>
+    <p>${T.collectionSub(items.length)}</p></div><div class="cards">${cards}</div>`;
+}
+
+function renderPassport(){
+  const T = t();
+  const st = streaks();
+  const days = Object.entries(profile.days).map(([d,v])=>({ day:+d, ...v }))
+                     .sort((a,b)=> b.day - a.day);
+  const avg = days.length
+    ? Math.round(days.reduce((a,b)=>a+(b.score||0),0) / days.length) : 0;
+  const stamps = days.map(d=>{
+    const tier = d.score >= 80 ? 3 : (d.score >= 40 ? 2 : 1);
+    return `<div class="stamp s${tier}" title="Day ${d.day}">
+      <b>${Math.round(d.score)}</b><span>#${d.day}</span></div>`;
+  }).join('');
+  const ach = ACHIEVEMENTS.map(a=>{
+    const got = profile.achievements.includes(a.id);
+    const [name, desc] = T.ach[a.id];
+    return `<div class="ach${got ? '' : ' locked'}">
+      <span class="seal">${got ? '★' : '·'}</span>
+      <div><b>${name}</b><span>${desc}</span></div></div>`;
+  }).join('');
+  document.getElementById('viewPassport').innerHTML =
+    `<div class="panel-head"><h2>${T.passportTitle}</h2><p>${T.passportSub}</p></div>
+     <div class="stats">
+       <div class="stat"><b>${st.played}</b><span>${T.statPlayed}</span></div>
+       <div class="stat"><b>${st.current}</b><span>${T.statStreak}</span></div>
+       <div class="stat"><b>${st.best}</b><span>${T.statBest}</span></div>
+       <div class="stat"><b>${avg}</b><span>${T.statAvg}</span></div>
+     </div>
+     <div class="stamps">${stamps}</div>
+     <div class="panel-head" style="margin-top:20px"><h2>${T.achTitle}</h2></div>
+     <div class="ach-list">${ach}</div>
+     <label class="cb-row"><input type="checkbox" id="cbToggle"
+       ${cbOn() ? 'checked' : ''}> ${T.cbLabel}</label>`;
+  document.getElementById('cbToggle').onchange = e=>{
+    profile.colorblind = e.target.checked; saveProfile(); applyColorblind(); render();
+  };
+}
+
+function renderArchive(){
+  const T = t();
+  const rows = [];
+  for(let d = todayIndex; d >= Math.max(0, todayIndex - 60); d--){
+    const rec = profile.days[d];
+    const date = new Date(EPOCH + d * 86400000).toISOString().slice(0,10);
+    rows.push(`<div class="arch-row">
+      <span class="arch-day">${date}${d===todayIndex ? ' ·' : ''}</span>
+      <span class="arch-score">${rec ? T.scoreOf(Math.round(rec.score)) : '—'}</span>
+      <a class="btn secondary" style="font-size:0.68rem;padding:7px 11px"
+         href="?day=${d}">${d===todayIndex ? T.navGame : T.archiveOpen}</a></div>`);
+  }
+  document.getElementById('viewArchive').innerHTML =
+    `<div class="panel-head"><h2>${T.archiveTitle}</h2><p>${T.archiveSub}</p></div>
+     <div class="arch-list">${rows.join('')}</div>`;
+}
+
+/* ---------- Countdown ---------- */
+function renderCountdown(){
+  const T = t();
+  const el = document.getElementById('countdown');
+  if(!el) return;
+  const nextUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + 86400000;
+  const tick = ()=>{
+    const left = nextUtcMidnight - Date.now();
+    if(left <= 0){ el.innerHTML = ''; return; }
+    const h = String(Math.floor(left/3600000)).padStart(2,'0');
+    const m = String(Math.floor(left/60000) % 60).padStart(2,'0');
+    const sec = String(Math.floor(left/1000) % 60).padStart(2,'0');
+    el.innerHTML = `${T.nextIn} <b>${h}:${m}:${sec}</b>`;
+  };
+  tick();
+  clearInterval(renderCountdown._t);
+  renderCountdown._t = setInterval(tick, 1000);
+}
+
+/* ---------- Field Notes (first visit only) ---------- */
+function maybeFieldNotes(){
+  if(profile.seenFieldNotes) return;
+  const T = t();
+  document.getElementById('fnTitle').textContent = T.fieldNotesTitle;
+  document.getElementById('fnBody').innerHTML =
+    T.fieldNotes.map(p=>`<p>${p}</p>`).join('');
+  document.getElementById('fnClose').textContent = T.fieldNotesBtn;
+  document.getElementById('fieldNotesBackdrop').classList.add('open');
+}
+document.getElementById('fnClose').addEventListener('click', ()=>{
+  document.getElementById('fieldNotesBackdrop').classList.remove('open');
+  profile.seenFieldNotes = true; saveProfile();
+});
+
 /* ---------- Init ---------- */
-loadDataset().then(render);
+loadDataset().then(()=>{
+  applyColorblind();
+  if(isPractice){
+    const b = document.createElement('div');
+    b.className = 'practice-banner';
+    b.innerHTML = `${t().practiceBadge} · <a href="./" style="color:var(--gold)">${t().backToToday}</a>`;
+    document.getElementById('viewGame').prepend(b);
+  }
+  render();
+  renderNav();
+  renderCountdown();
+  maybeFieldNotes();
+});
 </script>
 </body>
 </html>
