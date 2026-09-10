@@ -8,7 +8,7 @@ of 100, with a Globle-style world-map distance mechanic.
 unescle.html        the whole game — single file, no build step
 build_dataset.py    Wikidata + Wikimedia Commons pipeline
 data/dataset.json   pipeline output (metadata; not committed until it's real)
-images/{id}.jpg     one photo per entry (only the day's 3 are ever requested)
+images/{id}.jpg     optional self-hosted photos (--download-images)
 tests/              offline pipeline fixtures + a Playwright end-to-end test
 ```
 
@@ -37,9 +37,10 @@ python3 -m http.server 8000     # then open http://localhost:8000/unescle.html
 
 ```sh
 pip install requests
-python build_dataset.py                  # full run: ~2,100 entries + photos
-python build_dataset.py --limit 40       # smoke test against the live endpoints
-python build_dataset.py --skip-images    # metadata only
+python build_dataset.py                    # full run: ~2,100 entries
+python build_dataset.py --limit 40         # smoke test against the live endpoints
+python build_dataset.py --skip-images      # skip Commons entirely
+python build_dataset.py --download-images  # also self-host the photos (~550 MB)
 python build_dataset.py --fixture tests/fixtures   # offline, no network
 ```
 
@@ -50,10 +51,10 @@ The run prints a distribution report and writes:
 
 - `data/dataset.json` — `{ meta, countries, entries }`
 - `data/noncommercial_images.json` — entries whose only photo is CC BY-NC-\*
-- `images/{id}.jpg`
+- `images/{id}.jpg` — only with `--download-images`
 
-Commit `data/` and `images/` to publish them; the Pages workflow copies whatever
-is present and the game degrades gracefully when either is missing.
+The Pages workflow copies whatever is present, and the game degrades gracefully
+when anything is missing.
 
 ### Dataset shape
 
@@ -75,7 +76,8 @@ is present and the game degrades gracefully when either is missing.
     "year": 1985,
     "sitelinks": 52,
     "aliases": [ … ],
-    "image": { "path": …, "license": "CC BY-SA 4.0", "credit": "A. Photographer",
+    "image": { "url": …,            // Commons CDN; "path" too with --download-images
+               "license": "CC BY-SA 4.0", "credit": "A. Photographer",
                "nonCommercial": true }
   }]
 }
@@ -123,11 +125,21 @@ is pulled from Wikidata, and every fallback to English is counted and reported.
   photos are flagged (`image.nonCommercial`) and listed in
   `data/noncommercial_images.json` — flagged, never silently discarded, in case
   the site ever needs to be commercial-safe.
-- **Photo resolution.** Sources are fetched at 1024px wide. The board crops to
-  16:10 at ~450 CSS px, which hides most of the frame, so tapping the photo
-  opens the whole thing — the architecture, vegetation and signage a player
-  actually reads a continent off. `IMAGE_WIDTH` in `build_dataset.py` trades
-  that detail against repo size.
+- **Photos come from Commons' CDN, not the repo.** Measured against live
+  Commons: 1024px thumbnails average **408 KB**, and re-encoding at quality 80
+  only brings them to **291 KB** — about **553 MB** across ~1,900 photos, which
+  is too much for git and uncomfortably close to the 1 GB GitHub Pages ceiling.
+  So `dataset.json` stores each photo's Commons URL and the game loads it
+  directly. That costs nothing in the repo *and* allows a **larger** image than
+  self-hosting could afford, which is the point: the board crops to 16:10 at
+  ~450 CSS px, so tapping the photo opens the full frame, where the
+  architecture, vegetation and signage a player reads a location off actually
+  become legible.
+
+  `--download-images` still saves local copies under `images/`, and the game
+  prefers them whenever they exist — so self-hosting later is a pipeline flag,
+  not a code change. Budget roughly `IMAGE_WIDTH²`: 640px ≈ 150 MB, 1024px ≈
+  553 MB.
 
 `data/` and `images/` are gitignored: a local test run writes a *synthetic*
 dataset and placeholder photos there, and this stops them being committed by

@@ -535,7 +535,11 @@ function render(){
     box.classList.remove('zoomable');
     document.getElementById('fallbackText').textContent = T.photoFallback;
   };
-  img.src = (target.image && target.image.path) || `images/${target.id}.jpg`;
+  // A downloaded copy wins when the pipeline made one; otherwise the photo
+  // comes straight from Commons' CDN at full width. Either way a miss falls
+  // through to onerror and the placeholder.
+  img.src = (target.image && (target.image.path || target.image.url))
+            || `images/${target.id}.jpg`;
   img.alt = roundFinished() ? target.names[lang] : '';
   // Re-render with the same src doesn't refire load; catch the already-decoded case.
   if(img.complete && img.naturalWidth) box.classList.add('zoomable');

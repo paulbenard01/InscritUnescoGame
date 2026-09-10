@@ -87,12 +87,17 @@ ALIASES_PER_LANG = 4
 # The photo box crops to 16:10 at ~450 CSS px, but tapping it opens the full
 # frame, so the source needs to carry real detail -- architecture, vegetation,
 # signage are what a player reads a continent off.
-IMAGE_WIDTH = 1024
-# Commons serves its thumbnails at very high JPEG quality: 1024px files average
-# ~400 KB, which is ~775 MB across the full dataset. Re-encoding at quality 80
-# keeps the pixel dimensions -- which is what carries the detail -- while cutting
-# the footprint by roughly two thirds. Needs Pillow; without it the original
-# bytes are kept and the run says so.
+# Measured against live Commons: 1024px thumbnails average ~408 KB, and even
+# re-encoded at quality 80 they only fall to ~291 KB. Across ~1,900 photos that
+# is ~553 MB -- too much to carry in git, and close to the 1 GB GitHub Pages
+# ceiling. So by default the dataset stores Commons' own CDN URL and the game
+# loads from there, which costs nothing in the repo and lets the width go
+# *higher* than a self-hosted copy could afford.
+#
+# --download-images still fetches local copies (they take precedence in the
+# game), for offline play or if hotlinking ever needs to stop. Budget roughly
+# IMAGE_WIDTH^2 -- 640px lands near 150 MB, 1024px near 553 MB.
+IMAGE_WIDTH = 1280
 IMAGE_QUALITY = 80
 REQUEST_TIMEOUT = 90
 MAX_RETRIES = 5
@@ -511,7 +516,7 @@ def recompress(data):
         return data
 
 
-def download_image(entry, image_uris, out_dir="images"):
+def download_image(entry, image_uris, out_dir="images", download=False):
     """Attach the first usable Commons photo. Licence + attribution always ride
     along with the file -- the credit line in-game depends on it."""
     for uri in image_uris[:3]:
@@ -522,8 +527,8 @@ def download_image(entry, image_uris, out_dir="images"):
         if not info or not info["thumb_url"]:
             continue
         path = f"{out_dir}/{entry['id']}.jpg"
-        if FIXTURES:
-            pass  # offline: exercise the metadata path without fetching bytes
+        if FIXTURES or not download:
+            pass  # metadata only: the game loads info["thumb_url"] from Commons
         elif not os.path.exists(path):  # resumable: don't re-download on a rerun
             os.makedirs(out_dir, exist_ok=True)
             try:
@@ -536,12 +541,14 @@ def download_image(entry, image_uris, out_dir="images"):
             except requests.RequestException:
                 continue
         entry["image"] = {
-            "path": path,
+            "url": info["thumb_url"],
             "file": filename,
             "license": info["license"],
             "credit": info["artist"] or info["credit"] or "Wikimedia Commons",
             "source": info["descriptionurl"],
         }
+        if download:
+            entry["image"]["path"] = path
         if is_noncommercial(info["license"]):
             entry["image"]["nonCommercial"] = True
         return True
@@ -657,7 +664,11 @@ def main():
     global FIXTURES
     ap = argparse.ArgumentParser(description="Build the Unescle dataset.")
     ap.add_argument("--limit", type=int, help="cap items per designation (smoke test)")
-    ap.add_argument("--skip-images", action="store_true", help="metadata only")
+    ap.add_argument("--skip-images", action="store_true",
+                    help="skip Commons entirely: no photo URLs, no downloads")
+    ap.add_argument("--download-images", action="store_true",
+                    help="also save local copies under images/ (adds ~550 MB at "
+                         "the default width; the game prefers them when present)")
     ap.add_argument("--fixture", help="replay recorded responses from this dir (offline)")
     ap.add_argument("--out", default="data/dataset.json")
     args = ap.parse_args()
@@ -707,11 +718,12 @@ def main():
     assign_tiers(dataset)
 
     if not args.skip_images:
-        print("\nDownloading photos...")
+        print("\nResolving photos..." if not args.download_images
+              else "\nDownloading photos...")
         for i, entry in enumerate(dataset, 1):
             images = all_items[entry["qid"]]["images"]
             if images:
-                download_image(entry, images)
+                download_image(entry, images, download=args.download_images)
             if i % 50 == 0:
                 got = sum(1 for e in dataset[:i] if "image" in e)
                 print(f"  {i}/{len(dataset)} processed, {got} photos")
