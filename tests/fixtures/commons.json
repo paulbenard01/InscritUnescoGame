@@ -1,0 +1,23 @@
+{
+ "Goreme.jpg": {
+  "thumb_url": "https://upload.wikimedia.org/x/Goreme.jpg",
+  "license": "CC BY-SA 4.0",
+  "artist": "A. Photographer",
+  "credit": "Own work",
+  "descriptionurl": "https://commons.wikimedia.org/wiki/File:Goreme.jpg"
+ },
+ "Flamenco.jpg": {
+  "thumb_url": "https://upload.wikimedia.org/x/Flamenco.jpg",
+  "license": "CC BY 3.0",
+  "artist": "B. Shooter",
+  "credit": "",
+  "descriptionurl": ""
+ },
+ "Sighisoara.jpg": {
+  "thumb_url": "https://upload.wikimedia.org/x/Sighisoara.jpg",
+  "license": "CC BY-NC-SA 2.0",
+  "artist": "C. Snapper",
+  "credit": "",
+  "descriptionurl": ""
+ }
+}

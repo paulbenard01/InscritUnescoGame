@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+_site/
+
+# Pipeline output. Ignored so a local test run — which writes a *synthetic*
+# dataset and placeholder photos here — can never be committed by accident.
+# The Build dataset workflow force-adds the real ones (git add -f).
+/data/
+/images/

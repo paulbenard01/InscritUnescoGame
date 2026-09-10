@@ -1,0 +1,17 @@
+name: Tests
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests playwright && playwright install --with-deps chromium
+      - name: Pipeline transform (offline fixtures)
+        run: python build_dataset.py --fixture tests/fixtures --out /tmp/ds.json
+      - name: Game end-to-end
+        run: python tests/test_game.py

@@ -1,0 +1,137 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q193036"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Flamenco",
+     "xml:lang": "en"
+    },
+    "labelFr": {
+     "type": "literal",
+     "value": "Flamenco",
+     "xml:lang": "fr"
+    },
+    "labelEs": {
+     "type": "literal",
+     "value": "Flamenco",
+     "xml:lang": "es"
+    },
+    "descEn": {
+     "type": "literal",
+     "value": "Spanish art form",
+     "xml:lang": "en"
+    },
+    "descEs": {
+     "type": "literal",
+     "value": "Arte español",
+     "xml:lang": "es"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "78"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "2010-11-16T00:00:00Z"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q29"
+    },
+    "image": {
+     "type": "literal",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Flamenco.jpg"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999003"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Al-Ayyala, a traditional performing art",
+     "xml:lang": "en"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "3"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "2014-11-27T00:00:00Z"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q878"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q1042"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Yoga",
+     "xml:lang": "en"
+    },
+    "labelFr": {
+     "type": "literal",
+     "value": "Le yoga",
+     "xml:lang": "fr"
+    },
+    "labelEs": {
+     "type": "literal",
+     "value": "El yoga",
+     "xml:lang": "es"
+    },
+    "descEn": {
+     "type": "literal",
+     "value": "Indian physical and mental practice",
+     "xml:lang": "en"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "64"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q668"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Asia"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999005"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Dual Designated Thing",
+     "xml:lang": "en"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "10.0,10.0"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "7"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q29"
+    }
+   }
+  ]
+ }
+}
