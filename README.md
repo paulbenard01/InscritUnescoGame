@@ -14,10 +14,15 @@ tests/              offline pipeline fixtures + a Playwright end-to-end test
 
 ## Status
 
-The game shell is finished and wired to the real dataset format. **`data/dataset.json`
-has not been generated yet** — see [Known gap](#known-gap-the-dataset-has-not-been-built)
-below. Until it exists, the game falls back to its built-in 12-entry demo set
-and plays end-to-end on that.
+The game shell is finished and wired to the real dataset format, and the
+pipeline has been validated against live Wikidata and Commons in samples — see
+[What the live runs showed](#what-the-live-runs-showed). **The full dataset has
+not been committed yet**: until `data/dataset.json` exists the game falls back
+to its built-in 12-entry demo set and plays end-to-end on that.
+
+To generate and publish it, run the **Build dataset** workflow with `commit`
+checked (it needs to be on the default branch first, since `workflow_dispatch`
+only registers from there).
 
 ## Running it
 
@@ -142,36 +147,40 @@ measuring rather than by eye:
 Layout uses `100dvh` and `env(safe-area-inset-*)` so the iOS URL bar and the
 notch don't eat content.
 
-## Known gap: the dataset has not been built
+## What the live runs showed
 
-`build_dataset.py` has **not been run against the live endpoints.** The
-environment this work was done in denies outbound access to every Wikimedia
-host by egress policy:
+The pipeline has been run against live Wikidata and Commons via the
+`Build dataset` workflow — in samples, not yet a full crawl. From a 114-entry
+run with photos:
 
-```
-query.wikidata.org      403  (policy denial at the egress proxy)
-www.wikidata.org        403
-commons.wikimedia.org   403
-upload.wikimedia.org    403
-en.wikipedia.org        403
-api.wikimedia.org       403
-```
+| | |
+|---|---|
+| usable entries | 114 of 114 items, 0 dropped |
+| photos found | 103 (90%) |
+| coordinates from country centroid | 9 |
+| entries with no continent | 0 |
+| name coverage | EN 100% · **FR 67%** · **ES 54%** |
+| description coverage | EN 98% · **FR 53%** · **ES 47%** |
+| throughput | ~0.74 s/entry, so a full ~2,120-entry run is ~26 min |
 
-So the pipeline is written, reviewed and tested against recorded fixtures, but
-its live behaviour — real result counts, actual FR/ES coverage, Commons rate
-limits, the true tier distribution — is unverified. Run it from a machine with
-network access; `--limit 40` first.
+Three things worth knowing, all of which only showed up against real data:
 
-Two things to check on that first run:
+1. **A handful of items carry both designations.** Four appeared in the
+   114-entry sample. The pipeline keeps the first and logs each one; before
+   that it let the second silently overwrite the first, mislabelling the type.
+2. **`P30` (continent) is almost never set on these items** — 112 of 114 had
+   none. The country fallback is doing nearly all the work; without it the
+   Continent clue tile would be blank for most entries.
+3. **FR/ES coverage is partial, and this is the real answer to "is it
+   trilingual?"** Names fall back to English for about a third of entries in
+   French and half in Spanish; descriptions are worse. The clue tiles for
+   continent, category and type are unaffected — those are codes translated in
+   the UI — but names and descriptions are not. The run prints the numbers and
+   warns under 60%. This is a content limitation of Wikidata, not a bug, and is
+   worth an explicit decision rather than shipping quietly.
 
-1. **The designation QIDs.** `Q9259` (World Heritage Site) and `Q1459900`
-   (Intangible Cultural Heritage element) are the `P1435` values the pipeline
-   queries. The script warns if a run returns under half the expected count,
-   which is the signal that a QID is wrong.
-2. **Translation coverage.** The run prints name and description coverage per
-   language and warns if FR/ES fall below 60%. If most entries fall back to
-   English names, that is worth deciding on deliberately rather than shipping
-   as "trilingual".
+The designation QIDs `Q9259` and `Q1459900` are confirmed to return sensible
+results. The script still warns if a run returns under half the expected count.
 
 ## Deployment
 

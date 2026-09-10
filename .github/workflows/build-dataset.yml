@@ -56,7 +56,7 @@ jobs:
             # Branch smoke configuration. Edit this line to widen a branch run
             # (it shows up in the diff); an incidental push must never start a
             # full crawl by accident.
-            ARGS="--limit 60"
+            ARGS="--limit 40 --skip-images"
           else
             ARGS=""
             if [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit ${{ inputs.limit }}"; fi
@@ -64,6 +64,9 @@ jobs:
           fi
           echo "build_dataset.py $ARGS"
           python build_dataset.py $ARGS 2>&1 | tee build.log
+          if [ -d images ]; then
+            echo "images: $(ls images | wc -l) files, $(du -sh images | cut -f1)" | tee -a build.log
+          fi
 
       - name: Report
         run: |
