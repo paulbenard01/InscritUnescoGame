@@ -13,6 +13,7 @@ CONTINENTS = ["EU", "AS", "AF", "NA", "SA", "OC"]
 # country's centroid, so they need coordinates.
 COUNTRIES = {
     f"Q{100+i}": {"en": f"Country {i}", "fr": f"Pays {i}", "es": f"País {i}",
+                  "cont": CONTINENTS[i % len(CONTINENTS)],
                   "lat": round(random.uniform(-50, 65), 4),
                   "lng": round(random.uniform(-170, 170), 4)}
     for i in range(60)
