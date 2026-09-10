@@ -30,10 +30,11 @@ TIMEOUT = 90
 # The official World Heritage list has a machine-readable export. The exact path
 # has moved between site revisions, so try the known forms and report which one
 # answered rather than assuming.
+# The export exists per language, which matters: it is a source of official
+# FR/ES titles for every site, where Wikidata's label coverage is partial.
 WHS_CANDIDATES = [
-    "https://whc.unesco.org/en/list/xml/",
-    "https://whc.unesco.org/en/list/xml",
-    "https://whc.unesco.org/en/list/?&type=xml",
+    "https://whc.unesco.org/{lang}/list/xml/",
+    "https://whc.unesco.org/{lang}/list/xml",
 ]
 # The intangible list has no equivalent stable export; the browse pages are HTML.
 ICH_CANDIDATES = [
@@ -85,9 +86,10 @@ def norm(name):
     return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
 
 
-def fetch_official_whs():
-    """Return {official_id: title} from the official World Heritage export."""
-    for url in WHS_CANDIDATES:
+def fetch_official_whs(lang="en"):
+    """Return {official_id: title} from the official export in one language."""
+    for template in WHS_CANDIDATES:
+        url = template.format(lang=lang)
         try:
             r = get(url)
             if r.status_code != 200 or len(r.content) < 1000:
@@ -108,7 +110,7 @@ def fetch_official_whs():
             if sid and title:
                 sites[str(sid).strip()] = title
         if sites:
-            print(f"  official World Heritage export: {url} -> {len(sites)} sites")
+            print(f"  official export [{lang}]: {url} -> {len(sites)} sites")
             return sites
         print(f"  {url} parsed but yielded no rows", file=sys.stderr)
     return {}
@@ -168,11 +170,19 @@ def main():
           f"({len(ours_material)} material, {len(ours_immaterial)} intangible)\n")
 
     print("Fetching official lists...")
-    official_whs = fetch_official_whs()
+    official_by_lang = {}
+    for lang in ("en", "fr", "es"):
+        got = fetch_official_whs(lang)
+        if got:
+            official_by_lang[lang] = got
+    official_whs = official_by_lang.get("en", {})
     official_ich = fetch_official_ich()
     print()
 
     # ---- World Heritage Sites: exact join on the official site number --------
+    # Bound up front: the trilingual section below reads them, and would raise
+    # a NameError if the official export could not be fetched.
+    qid2sid, official_ids = {}, set()
     if official_whs:
         print("=" * 66)
         print("WORLD HERITAGE SITES (matched on official site number via P757)")
@@ -227,6 +237,27 @@ def main():
     else:
         print("Could not retrieve the official World Heritage export — see errors "
               "above. No material comparison possible.", file=sys.stderr)
+
+    # ---- What the official titles could add to our translations -------------
+    if len(official_by_lang) > 1 and official_ids:
+        print()
+        print("=" * 66)
+        print("TRILINGUAL NAMES AVAILABLE FROM THE OFFICIAL LIST")
+        print("=" * 66)
+        for lang in ("en", "fr", "es"):
+            n = len(official_by_lang.get(lang, {}))
+            print(f"  {lang}: {n} official titles")
+        # How many of our material entries currently fall back to English?
+        fellback = [e for e in ours_material
+                    if e["names"]["fr"] == e["names"]["en"]
+                    or e["names"]["es"] == e["names"]["en"]]
+        joinable = [e for e in fellback
+                    if parent_site_id(qid2sid.get(e["qid"], "")) in official_ids]
+        print(f"\n  our material entries falling back to English in fr or es: {len(fellback)}")
+        print(f"  of those, matchable to an official inscription: {len(joinable)}")
+        print("\n  So the official export could supply real FR/ES titles for those,")
+        print("  where Wikidata has none. Note the licensing difference before")
+        print("  shipping it: Wikidata is CC0, the official list is not.")
 
     # ---- Intangible elements: name comparison only, and approximate ----------
     print()
