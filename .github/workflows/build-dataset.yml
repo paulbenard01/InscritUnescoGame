@@ -48,30 +48,19 @@ jobs:
       - name: Run pipeline
         env:
           UNESCLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
-          # Read through the environment, never interpolated into the script:
-          # a commit message is attacker-controlled and would otherwise be
-          # executed as shell.
-          HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
+          # pipefail matters: the run is piped through tee, so without it a
+          # pipeline crash exits 0 and the job reports a green build.
+          set -euo pipefail
           if [ "${{ github.event_name }}" = "push" ]; then
-            # Smoke test only: never let an incidental push start a full crawl.
-            ARGS="--limit 40 --skip-images"
-            # A commit message may widen it, e.g. "[dataset: --limit 60]", to
-            # size a real run from a branch while the workflow isn't yet
-            # dispatchable from the default branch. Whitelisted to the pipeline's
-            # own flags so nothing else can ride in.
-            OVERRIDE=$(printf '%s' "$HEAD_MSG" | sed -n 's/.*\[dataset:[[:space:]]*\([^]]*\)\].*/\1/p')
-            if [ -n "$OVERRIDE" ]; then
-              if printf '%s' "$OVERRIDE" | grep -Eq '^(--limit [0-9]{1,5}|--skip-images| )+$'; then
-                ARGS="$OVERRIDE"
-              else
-                echo "ignoring unsafe [dataset:] override: $OVERRIDE"
-              fi
-            fi
+            # Branch smoke configuration. Edit this line to widen a branch run
+            # (it shows up in the diff); an incidental push must never start a
+            # full crawl by accident.
+            ARGS="--limit 60"
           else
             ARGS=""
-            [ -n "${{ inputs.limit }}" ] && ARGS="$ARGS --limit ${{ inputs.limit }}"
-            [ "${{ inputs.skip_images }}" = "true" ] && ARGS="$ARGS --skip-images"
+            if [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit ${{ inputs.limit }}"; fi
+            if [ "${{ inputs.skip_images }}" = "true" ]; then ARGS="$ARGS --skip-images"; fi
           fi
           echo "build_dataset.py $ARGS"
           python build_dataset.py $ARGS 2>&1 | tee build.log
