@@ -58,6 +58,10 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (i)|~|World Heritage selection criterion (vii)"
+    },
+    "siteId": {
+     "type": "literal",
+     "value": "1133bis"
     }
    },
    {
@@ -98,6 +102,10 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (vii)"
+    },
+    "siteId": {
+     "type": "literal",
+     "value": "41225"
     }
    },
    {
@@ -138,6 +146,10 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (iii)"
+    },
+    "siteId": {
+     "type": "literal",
+     "value": "131013"
     }
    },
    {
@@ -161,6 +173,10 @@
     "country": {
      "type": "literal",
      "value": "http://www.wikidata.org/entity/Q218"
+    },
+    "siteId": {
+     "type": "literal",
+     "value": "999999"
     }
    },
    {

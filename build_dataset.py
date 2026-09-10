@@ -191,6 +191,10 @@ OFFICIAL_WHS_URL = "https://whc.unesco.org/en/list/xml/"
 def official_inscriptions():
     """Parent site numbers on the published World Heritage list.
 
+    Replayed from tests/fixtures/official_ids.json under --fixture, so the
+    filter is exercised offline: a KeyError here previously surfaced only
+    after twenty minutes of live crawling.
+
     Only identifiers are read -- no titles or descriptions are copied into the
     dataset, so nothing of theirs is redistributed. Wikidata's designation
     property is applied far more loosely than the published list (1,946 items
@@ -199,6 +203,10 @@ def official_inscriptions():
     things as World Heritage Sites that are not.
     """
     import xml.etree.ElementTree as ET
+    if FIXTURES:
+        ids = FIXTURES._load("official_ids.json") or []
+        print(f"  official list (fixture): {len(ids)} inscriptions")
+        return set(ids) or None
     try:
         r = requests.get(OFFICIAL_WHS_URL, headers=HEADERS, timeout=REQUEST_TIMEOUT)
         r.raise_for_status()
@@ -242,7 +250,7 @@ def filter_to_official(items):
         if it["type"] != "material":
             kept[qid] = it
             continue
-        stems = {parent_site_id(s) for s in it["site_ids"]} - {None}
+        stems = {parent_site_id(s) for s in it.get("site_ids", [])} - {None}
         if not stems:
             no_id += 1
             continue
@@ -254,7 +262,7 @@ def filter_to_official(items):
         it["site_id"] = stem
         # One entry per inscription: prefer the item that *is* the inscription
         # (an unsuffixed id), then the better-known one.
-        exact = any(str(x).strip() == stem for x in it["site_ids"])
+        exact = any(str(x).strip() == stem for x in it.get("site_ids", []))
         rank = (1 if exact else 0, int(it.get("sitelinks") or 0))
         prev = by_inscription.get(stem)
         if prev is None or rank > prev[0]:
@@ -272,7 +280,7 @@ def filter_to_official(items):
     # Report how many at least link to an official element page, but don't gate
     # on it: a partly-populated property would silently delete real elements.
     imm = [i for i in items.values() if i["type"] == "immaterial"]
-    linked = sum(1 for i in imm if i["official_urls"])
+    linked = sum(1 for i in imm if i.get("official_urls"))
     print(f"  intangible: {len(imm)} kept, {linked} of which link to an official "
           f"element page (no identifier property to filter on)")
     return kept
@@ -492,6 +500,8 @@ def fetch_designation(qid, kind, limit=None):
                 "country_qid": qid_of(multi(row, "country")[0]) if multi(row, "country") else None,
                 "continent_labels": multi(row, "continentEn"),
                 "criteria": multi(row, "criterionEn"),
+                "site_ids": multi(row, "siteId"),
+                "official_urls": multi(row, "officialUrl"),
                 "images": multi(row, "image"),
                 "aliases": {"en": [], "fr": [], "es": []},
             }
@@ -811,7 +821,7 @@ def main():
         for q, kept, skipped in dual[:10]:
             print(f"  {q}: kept {kept}, skipped {skipped}")
 
-    if not args.keep_unofficial and not FIXTURES:
+    if not args.keep_unofficial:
         print("\nFiltering to the official list...")
         all_items = filter_to_official(all_items)
 
