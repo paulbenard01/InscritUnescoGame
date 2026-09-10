@@ -21,6 +21,13 @@ on:
         default: false
   schedule:
     - cron: '0 4 1 * *'   # monthly refresh
+  # workflow_dispatch only registers once this file is on the default branch, so
+  # editing it on a feature branch also kicks a run — always as a small, safe
+  # smoke test (see the arg defaults below), never a full crawl.
+  push:
+    paths:
+      - '.github/workflows/build-dataset.yml'
+      - 'build_dataset.py'
 
 permissions:
   contents: write
@@ -42,9 +49,14 @@ jobs:
         env:
           UNESCLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
         run: |
-          ARGS=""
-          [ -n "${{ inputs.limit }}" ] && ARGS="$ARGS --limit ${{ inputs.limit }}"
-          [ "${{ inputs.skip_images }}" = "true" ] && ARGS="$ARGS --skip-images"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Smoke test only: never let an incidental push start a full crawl.
+            ARGS="--limit 40 --skip-images"
+          else
+            ARGS=""
+            [ -n "${{ inputs.limit }}" ] && ARGS="$ARGS --limit ${{ inputs.limit }}"
+            [ "${{ inputs.skip_images }}" = "true" ] && ARGS="$ARGS --skip-images"
+          fi
           echo "build_dataset.py $ARGS"
           python build_dataset.py $ARGS 2>&1 | tee build.log
 
