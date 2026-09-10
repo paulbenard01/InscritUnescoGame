@@ -105,6 +105,13 @@ def main():
                 check(page.locator(".suggestion").count() > 0, "autocomplete suggests countries")
                 page.locator(".suggestion").first.click(); page.wait_for_timeout(250)
                 check(page.locator(".hist-row").count() == 1, "guess recorded in history")
+                # Each guess says what it already got right, so a try narrows
+                # the search instead of just reporting a number.
+                tags = page.locator(".hist-row .hist-tag")
+                check(tags.count() == 2, "guess shows continent and region verdicts",
+                      str(tags.count()))
+                txt = page.locator(".hist-row").first.inner_text()
+                check("✓" in txt or "✗" in txt, "verdicts render a tick or cross", txt)
                 check("km" in page.locator("#mapReadout").inner_text(), "distance readout")
                 check(page.evaluate("document.querySelectorAll('#pinLayer circle').length") >= 1, "map pin drawn")
                 check(page.locator(".clue.unlocked").count() >= 1, "a clue unlocked")

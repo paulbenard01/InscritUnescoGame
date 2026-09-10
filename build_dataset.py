@@ -869,6 +869,11 @@ def main():
         rec = {"en": r.get("en") or q,
                "fr": r.get("fr") or r.get("en") or q,
                "es": r.get("es") or r.get("en") or q}
+        # The game tells you whether a guess was on the right continent, so each
+        # country needs one of its own to compare against the target's.
+        cont = continent_code([r["continent"]]) if r.get("continent") else None
+        if cont:
+            rec["cont"] = cont
         if r.get("coord"):
             rec["lat"], rec["lng"] = round(r["coord"][0], 4), round(r["coord"][1], 4)
         else:

@@ -116,8 +116,17 @@
   .history{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
   .hist-row{background:var(--navy-2);border-radius:8px;padding:8px 11px;display:flex;align-items:center;gap:8px;font-size:0.8rem;}
   .hist-dot{width:11px;height:11px;border-radius:50%;flex:none;}
-  .hist-name{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--cream);}
+  .hist-name{flex:1 1 auto;min-width:0;overflow-wrap:break-word;color:var(--cream);}
   .hist-km{font-family:'JetBrains Mono',monospace;font-size:0.73rem;color:var(--ink-dim);}
+  .hist-row{flex-wrap:wrap;}
+  /* Verdicts sit on their own line: at 320px they otherwise squeeze the
+     country name down to a couple of characters per line. */
+  .hist-tags{display:flex;gap:5px;flex:0 0 100%;margin-top:2px;padding-left:19px;}
+  .hist-km{margin-left:auto;}
+  .hist-tag{font-family:'JetBrains Mono',monospace;font-size:0.56rem;letter-spacing:0.02em;
+    border-radius:4px;padding:2px 5px;border:1px solid transparent;white-space:nowrap;}
+  .hist-tag.ok{background:rgba(92,138,92,0.22);border-color:var(--correct);color:#9ccf9c;}
+  .hist-tag.no{background:rgba(156,166,192,0.10);border-color:rgba(156,166,192,0.3);color:var(--ink-dim);}
 
   .round-result, .final-result{background:var(--navy-2);border:1px solid var(--gold);border-radius:10px;
     padding:16px;text-align:center;margin-bottom:14px;}
@@ -428,12 +437,18 @@ let COUNTRIES = [];
    can never contradict the coordinate it describes. It's the compass sector of
    the entry within its continent -- broad enough to narrow the search without
    naming the answer. */
+/* The demo set stores continent names rather than codes, so fall back to a
+   reverse lookup off the English name. */
+function contCodeOf(entry){
+  if(!entry) return null;
+  return entry.continentCode ||
+    Object.keys(UI.en.continents).find(k => UI.en.continents[k] === (entry.continent||{}).en) ||
+    null;
+}
+
 function regionOf(entry){
   const T = t();
-  // The demo set stores continent names rather than codes, so fall back to a
-  // reverse lookup off the English name.
-  const code = entry.continentCode ||
-    Object.keys(UI.en.continents).find(k => UI.en.continents[k] === (entry.continent||{}).en);
+  const code = contCodeOf(entry);
   const cont = (UI[lang].continents[code]) || (entry.continent||{})[lang] || UI[lang].unknown;
   const band = CONTINENT_BANDS[code];
   if(!band) return cont;
@@ -460,7 +475,7 @@ function buildCountries(table){
   // from the country's centroid to the target.
   return Object.entries(table)
     .filter(([, c]) => typeof c.lat === 'number' && typeof c.lng === 'number')
-    .map(([qid, c]) => ({ id: qid, lat: c.lat, lng: c.lng,
+    .map(([qid, c]) => ({ id: qid, lat: c.lat, lng: c.lng, continentCode: c.cont,
                           names: { en: c.en, fr: c.fr, es: c.es } }));
 }
 
@@ -760,8 +775,15 @@ function renderHistory(){
     const entry = COUNTRIES.find(c=>c.id===g.id);
     if(!entry) return;  // stored guess from a previous pool
     const row = document.createElement('div'); row.className = 'hist-row';
+    const tag = (ok, label) =>
+      `<span class="hist-tag ${ok ? 'ok' : 'no'}">${ok ? '✓' : '✗'} ${label}</span>`;
+    const tags = g.contOk === undefined ? '' :
+      `<span class="hist-tags">${tag(g.contOk, T.clueLabels[0])}${tag(g.regionOk, T.clueLabels[3])}</span>`;
+    // km before the tags: the tags claim a full row, so anything after them
+    // wraps onto a third line.
     row.innerHTML = `<span class="hist-dot" style="background:${heatColorVar[g.bucket]}"></span>
-      <span class="hist-name">${entry.names[lang]}</span><span class="hist-km">${g.km} km</span>`;
+      <span class="hist-name">${entry.names[lang]}</span>
+      <span class="hist-km">${g.km} km ${dirLabel(g.bearing)}</span>${tags}`;
     box.appendChild(row);
   });
 }
@@ -1018,7 +1040,12 @@ function submitGuess(country){
   const isCorrect = answer ? country.id === answer.id
                            : country.names.en === target.country.en;
   guesses.push({ id: country.id, km, bearing: brg,
-                 bucket: isCorrect ? 'correct' : heatBucket(km) });
+                 bucket: isCorrect ? 'correct' : heatBucket(km),
+                 // Distance alone is hard to act on. Saying which of continent
+                 // and region a guess already matched turns each try into a
+                 // narrowing step rather than a number to interpret.
+                 contOk: !!(contCodeOf(country) && contCodeOf(country) === contCodeOf(target)),
+                 regionOk: regionOf(country) === regionOf(target) });
 
   if(isCorrect){
     state.roundStatus[state.round] = 'solved';

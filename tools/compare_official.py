@@ -288,3 +288,65 @@ def main():
 
 if __name__ == "__main__":
     main()
+    discover_designations()
+
+
+# ---------------------------------------------------------------------------
+# Designation discovery
+# ---------------------------------------------------------------------------
+
+DESIG_QUERY = """
+SELECT ?desig ?desigLabel WHERE {
+  VALUES ?item { %s }
+  ?item wdt:P1435 ?desig .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+"""
+COUNT_QUERY = """
+SELECT (COUNT(DISTINCT ?item) AS ?n) WHERE { ?item wdt:P1435 wd:%s . }
+"""
+
+# Elements that are unambiguously intangible traditions, not places.
+KNOWN_ICH = ["Q193036", "Q1026431", "Q13417"]   # flamenco, and two others
+
+
+def discover_designations():
+    """Report which P1435 value actually marks intangible elements.
+
+    The brief supplied Q1459900 for intangible heritage, but the entries it
+    returns are overwhelmingly places with nationally-worded names -- Roman
+    ruins, national parks, geological stratotypes -- which is the shape of the
+    tentative list, not of living traditions. This checks what designations
+    known intangible elements actually carry, and how large each pool is.
+    """
+    print("\n" + "=" * 66)
+    print("WHICH P1435 VALUE MARKS INTANGIBLE ELEMENTS?")
+    print("=" * 66)
+    values = " ".join(f"wd:{q}" for q in KNOWN_ICH)
+    seen = {}
+    try:
+        for row in sparql_json(DESIG_QUERY % values):
+            qid = row["desig"]["value"].rsplit("/", 1)[-1]
+            seen.setdefault(qid, row.get("desigLabel", {}).get("value", qid))
+    except Exception as exc:
+        print(f"  designation lookup failed: {exc}", file=sys.stderr)
+        return
+    if not seen:
+        print("  no P1435 values found on the sample elements", file=sys.stderr)
+        return
+    for qid, label in seen.items():
+        try:
+            n = sparql_json(COUNT_QUERY % qid)[0]["n"]["value"]
+        except Exception:
+            n = "?"
+        print(f"  {qid:12} {label:<52} {n:>6} items")
+    print("\n  Compare against the pool the pipeline currently uses (Q1459900)")
+    print("  and against 849, the number of officially inscribed elements.")
+
+
+def sparql_json(query):
+    r = requests.post(SPARQL_URL, data={"query": query, "format": "json"},
+                      headers={**HEADERS, "Accept": "application/sparql-results+json"},
+                      timeout=TIMEOUT)
+    r.raise_for_status()
+    return r.json()["results"]["bindings"]
