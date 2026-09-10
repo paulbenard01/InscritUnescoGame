@@ -48,10 +48,26 @@ jobs:
       - name: Run pipeline
         env:
           UNESCLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+          # Read through the environment, never interpolated into the script:
+          # a commit message is attacker-controlled and would otherwise be
+          # executed as shell.
+          HEAD_MSG: ${{ github.event.head_commit.message }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             # Smoke test only: never let an incidental push start a full crawl.
             ARGS="--limit 40 --skip-images"
+            # A commit message may widen it, e.g. "[dataset: --limit 60]", to
+            # size a real run from a branch while the workflow isn't yet
+            # dispatchable from the default branch. Whitelisted to the pipeline's
+            # own flags so nothing else can ride in.
+            OVERRIDE=$(printf '%s' "$HEAD_MSG" | sed -n 's/.*\[dataset:[[:space:]]*\([^]]*\)\].*/\1/p')
+            if [ -n "$OVERRIDE" ]; then
+              if printf '%s' "$OVERRIDE" | grep -Eq '^(--limit [0-9]{1,5}|--skip-images| )+$'; then
+                ARGS="$OVERRIDE"
+              else
+                echo "ignoring unsafe [dataset:] override: $OVERRIDE"
+              fi
+            fi
           else
             ARGS=""
             [ -n "${{ inputs.limit }}" ] && ARGS="$ARGS --limit ${{ inputs.limit }}"
