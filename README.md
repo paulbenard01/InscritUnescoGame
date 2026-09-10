@@ -92,9 +92,19 @@ is pulled from Wikidata, and every fallback to English is counted and reported.
 - **Pagination.** One query with six `OPTIONAL` blocks over ~1,300 items
   exceeds the 60s WDQS timeout, so each query's spine is an `ORDER BY`'d
   subquery with `LIMIT`/`OFFSET`, fetched a page at a time with backoff.
-- **Cross-product rows.** Several `OPTIONAL`s together mean an item with two
-  images and two criteria returns four rows. Rows are grouped by QID and merged;
-  treating each row as an entry produced duplicates.
+- **One row per item.** Several `OPTIONAL`s together produce a cross product:
+  three languages of alias crossed with images and criteria can turn one item
+  into hundreds of near-identical rows. Multi-valued fields are
+  `GROUP_CONCAT`'d and single-valued ones `SAMPLE`'d, so each item returns
+  exactly one row. Aliases moved to their own per-page query — they were the
+  worst offender.
+- **Coordinates are sampled as a pair.** `lat` and `lon` are concatenated
+  before sampling; an item with two `P625` statements could otherwise take its
+  latitude from one and its longitude from the other, putting the pin in the
+  sea.
+- **Dual designations.** A few items are both a World Heritage Site and an
+  intangible element. The first wins and each is logged — letting the second
+  overwrite silently mislabelled the entry's type.
 - **Stable ids.** Slugs are ASCII-folded and disambiguated with the QID rather
   than a counter, so an id never shifts between runs — ids are image filenames
   and `localStorage` keys.
