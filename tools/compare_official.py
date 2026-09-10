@@ -286,9 +286,6 @@ def main():
               file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
-    discover_designations()
 
 
 # ---------------------------------------------------------------------------
@@ -350,3 +347,8 @@ def sparql_json(query):
                       timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()["results"]["bindings"]
+
+
+if __name__ == "__main__":
+    main()
+    discover_designations()
