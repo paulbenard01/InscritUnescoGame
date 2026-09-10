@@ -52,6 +52,33 @@ def get(url, **kw):
     return requests.get(url, headers=HEADERS, timeout=TIMEOUT, **kw)
 
 
+def parent_site_id(sid):
+    """Reduce a site number to the parent inscription.
+
+    Wikidata's P757 values carry suffixes the official export doesn't: revision
+    markers ("1153rev"), re-inscriptions ("1bis"), component numbers ("813-001")
+    and re-nomination years ("1558-2023"). All of those describe the same
+    inscription as their numeric stem, so a raw string join reports them as
+    disagreements when they are nothing of the sort.
+    """
+    m = re.match(r"(\d+)", str(sid).strip())
+    return m.group(1) if m else None
+
+
+def is_component(sid):
+    """True for a component/revision of a larger inscription rather than the
+    inscription itself -- these are what put things like 'Humble
+    Administrator's Garden' in the list beside 'Classical Gardens of Suzhou'."""
+    return bool(re.match(r"^\d+[-a-z]", str(sid).strip()))
+
+
+def slugify(name):
+    """Match the id scheme build_dataset.py uses, so our ids can be compared to
+    the slugs in official element URLs."""
+    ascii_name = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
+
+
 def norm(name):
     """Fold a title to something comparable: ASCII, lowercase, alphanumeric."""
     s = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode()
@@ -105,7 +132,7 @@ def fetch_official_ich():
         # Element pages look like /en/RL/some-element-name-00123
         names = set()
         for m in re.finditer(r'/en/(?:RL|BSP|USL)/([a-z0-9\-]+?)-(\d{5})\b', r.text):
-            names.add((m.group(2), m.group(1).replace("-", " ")))
+            names.add((m.group(2), m.group(1)))  # (inscription id, url slug)
         if names:
             print(f"  official intangible listing: {url} -> {len(names)} elements")
             return {sid: title for sid, title in names}
@@ -156,25 +183,43 @@ def main():
             sid = qid2sid.get(e["qid"])
             (ours_by_sid.setdefault(sid, e) if sid else no_sid.append(e))
 
-        official_ids = set(official_whs)
-        our_ids = set(ours_by_sid)
-        missing = official_ids - our_ids
-        extra = our_ids - official_ids
+        official_ids = {parent_site_id(s) for s in official_whs} - {None}
+        official_by_parent = {}
+        for sid, title in official_whs.items():
+            official_by_parent.setdefault(parent_site_id(sid), title)
 
-        print(f"official list:        {len(official_ids)}")
-        print(f"ours with a site id:  {len(our_ids)}")
-        print(f"ours without one:     {len(no_sid)} (can't be matched by id)")
-        print(f"coverage:             {100 * len(our_ids & official_ids) / max(len(official_ids), 1):.1f}%")
-        print(f"\nin the official list but missing from ours: {len(missing)}")
-        for sid in sorted(missing)[:args.show]:
-            print(f"  {sid}  {official_whs[sid]}")
+        our_parents, components = set(), []
+        for sid, e in ours_by_sid.items():
+            p = parent_site_id(sid)
+            if p:
+                our_parents.add(p)
+            if is_component(sid):
+                components.append((sid, e))
+
+        missing = official_ids - our_parents
+        extra = our_parents - official_ids
+
+        print(f"official inscriptions:   {len(official_ids)}")
+        print(f"ours carrying a site id: {len(ours_by_sid)} "
+              f"({len(our_parents)} distinct inscriptions)")
+        print(f"ours with no site id:    {len(no_sid)}")
+        print(f"COVERAGE:                {100 * len(our_parents & official_ids) / max(len(official_ids), 1):.1f}% "
+              f"of the official list")
+        # "813-001" is a component of a serial site; "1bis"/"1153rev" are
+        # re-inscriptions or boundary revisions of one. Different things, both
+        # meaning the entry is not the plain inscription the official list names.
+        print(f"components or revisions in ours: {len(components)}")
+        for sid, e in sorted(components)[:8]:
+            print(f"  {sid:10} {e['names']['en'][:52]}")
+
+        print(f"\nofficial inscriptions missing from ours: {len(missing)}")
+        for sid in sorted(missing, key=lambda x: int(x))[:args.show]:
+            print(f"  {sid}  {official_by_parent[sid]}")
         if len(missing) > args.show:
             print(f"  ... and {len(missing) - args.show} more")
-        print(f"\nin ours but not in the official list: {len(extra)}")
-        for sid in sorted(extra)[:args.show]:
-            print(f"  {sid}  {ours_by_sid[sid]['names']['en']}")
-        if len(extra) > args.show:
-            print(f"  ... and {len(extra) - args.show} more")
+        print(f"\nsite ids in ours with no official counterpart: {len(extra)}")
+        for sid in sorted(extra, key=lambda x: int(x))[:args.show]:
+            print(f"  {sid}")
         if no_sid:
             print(f"\nours with no site id on Wikidata (sample):")
             for e in no_sid[:args.show]:
@@ -189,16 +234,22 @@ def main():
         print("=" * 66)
         print("INTANGIBLE ELEMENTS (approximate: normalised-name match only)")
         print("=" * 66)
-        official_names = {norm(t) for t in official_ich.values()}
-        our_names = {norm(e["names"]["en"]) for e in ours_immaterial}
-        hits = sum(1 for n in our_names if n in official_names)
-        print(f"official elements scraped: {len(official_ich)}")
-        print(f"ours:                      {len(ours_immaterial)}")
-        print(f"exact normalised-name hits: {hits} "
-              f"({100 * hits / max(len(our_names), 1):.1f}% of ours)")
-        print("\nNames are a weak key here: the official titles and Wikidata labels")
-        print("are worded differently far more often than they actually disagree, so")
-        print("a low hit rate is not evidence of missing entries.")
+        # Compare our ids to the official URL slugs -- both are slugified
+        # English titles, so this is far closer to like-for-like than comparing
+        # a slug against a full label.
+        official_slugs = set(official_ich.values())
+        our_slugs = {slugify(e["names"]["en"]) for e in ours_immaterial}
+        exact = our_slugs & official_slugs
+        # Prefix matches catch the common case where one side truncates.
+        loose = {s for s in our_slugs - exact
+                 if any(o.startswith(s[:24]) or s.startswith(o[:24]) for o in official_slugs)}
+        print(f"official elements: {len(official_ich)}")
+        print(f"ours:              {len(ours_immaterial)}")
+        print(f"slug matches:      {len(exact)} exact + {len(loose)} partial "
+              f"= {100 * (len(exact) + len(loose)) / max(len(our_slugs), 1):.1f}% of ours")
+        print("\nThis half has no official machine-readable export, so it is matched on")
+        print("slugified titles rather than identifiers. Treat it as indicative: a miss")
+        print("is as likely to be different wording as a genuinely absent element.")
     else:
         print("Could not retrieve the official intangible listing — see errors above.",
               file=sys.stderr)
