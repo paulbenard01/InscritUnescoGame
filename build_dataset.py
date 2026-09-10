@@ -77,9 +77,16 @@ COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 # A handful of items carry both designations; the first one wins (see main()).
 # If a run returns far fewer than `expected`, the designation item is probably
 # wrong -- check what P1435 actually points at on a known entry.
+# Q1459900 is disabled. It was briefed as Intangible Cultural Heritage, but the
+# 1,745 items it returns are places, not traditions -- Roman ruins, national
+# parks, a geological stratotype, many titled in the submitting country's
+# language. That is the World Heritage tentative list, and the game was
+# presenting its candidates as inscribed heritage. Until the correct
+# designation is identified, the pool is material only; re-enable the line
+# below once it is, and nothing else has to change.
 DESIGNATIONS = [
     ("Q9259", "material", 1273),
-    ("Q1459900", "immaterial", 849),
+    # ("Q1459900", "immaterial", 849),
 ]
 
 PAGE_SIZE = 250
