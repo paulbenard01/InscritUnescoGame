@@ -136,7 +136,21 @@ def main():
                       f"{country_score} -> {withBonus}")
                 check(page.evaluate("state.bonusOpen") is False, "bonus closes after the pin")
 
-                page.click("#nextBtn"); page.wait_for_timeout(200)
+                page.click("#nextBtn"); page.wait_for_timeout(300)
+                # Round 2 is played through the UI rather than by calling
+                # submitGuess. The input was left disabled when round 1 ended,
+                # so rounds 2 and 3 were unplayable — and driving the game
+                # through submitGuess hid that completely.
+                check(page.evaluate("document.getElementById('guessInput').disabled") is False,
+                      "guess input is usable again in round 2")
+                nxt = page.evaluate(
+                    "COUNTRIES.find(c=>c.names.en!==targets[1].country.en).names.en")
+                page.fill("#guessInput", nxt[:10]); page.wait_for_timeout(250)
+                check(page.locator(".suggestion").count() > 0,
+                      "round 2 accepts typed guesses")
+                page.locator(".suggestion").first.click(); page.wait_for_timeout(250)
+                check(page.locator(".hist-row").count() >= 1, "round 2 records the guess")
+
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(200)
                 page.click("#skipBonusBtn"); page.wait_for_timeout(200)
                 page.click("#nextBtn"); page.wait_for_timeout(200)
