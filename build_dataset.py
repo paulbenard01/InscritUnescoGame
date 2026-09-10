@@ -86,9 +86,14 @@ PAGE_SIZE = 250
 ALIASES_PER_LANG = 4
 # The photo box crops to 16:10 at ~450 CSS px, but tapping it opens the full
 # frame, so the source needs to carry real detail -- architecture, vegetation,
-# signage are what a player reads a continent off. 1024 is the balance between
-# that and what's reasonable to keep in the repo.
+# signage are what a player reads a continent off.
 IMAGE_WIDTH = 1024
+# Commons serves its thumbnails at very high JPEG quality: 1024px files average
+# ~400 KB, which is ~775 MB across the full dataset. Re-encoding at quality 80
+# keeps the pixel dimensions -- which is what carries the detail -- while cutting
+# the footprint by roughly two thirds. Needs Pillow; without it the original
+# bytes are kept and the run says so.
+IMAGE_QUALITY = 80
 REQUEST_TIMEOUT = 90
 MAX_RETRIES = 5
 COMMONS_DELAY = 0.4        # be polite; raise if Commons starts 429ing
@@ -474,6 +479,38 @@ def commons_imageinfo(filename):
     return None
 
 
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+_warned_no_pillow = False
+
+
+def recompress(data):
+    """Re-encode a Commons thumbnail at IMAGE_QUALITY, keeping its dimensions.
+
+    Returns the original bytes unchanged if Pillow is missing or the image
+    won't decode -- a photo at the wrong size beats no photo.
+    """
+    global _warned_no_pillow
+    if Image is None:
+        if not _warned_no_pillow:
+            print("  note: Pillow not installed, keeping Commons' original file sizes "
+                  "(~3x larger). pip install Pillow", file=sys.stderr)
+            _warned_no_pillow = True
+        return data
+    try:
+        import io
+        im = Image.open(io.BytesIO(data))
+        im = im.convert("RGB")  # drops alpha and palette modes JPEG can't hold
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=IMAGE_QUALITY, optimize=True, progressive=True)
+        out = buf.getvalue()
+        return out if len(out) < len(data) else data
+    except Exception:
+        return data
+
+
 def download_image(entry, image_uris, out_dir="images"):
     """Attach the first usable Commons photo. Licence + attribution always ride
     along with the file -- the credit line in-game depends on it."""
@@ -495,7 +532,7 @@ def download_image(entry, image_uris, out_dir="images"):
                 if not img.headers.get("Content-Type", "").startswith("image/"):
                     continue
                 with open(path, "wb") as f:
-                    f.write(img.content)
+                    f.write(recompress(img.content))
             except requests.RequestException:
                 continue
         entry["image"] = {
