@@ -4,16 +4,22 @@ Covers the wiring the pipeline swap touches -- async load, per-tier day picks
 from the full pool, trilingual clue tiles, image + credit, and the file://
 fallback to the built-in demo set.
 """
-import http.server, json, os, socketserver, threading, sys
+import http.server, json, os, shutil, socketserver, subprocess, sys, tempfile, threading
 from playwright.sync_api import sync_playwright
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAILS = []
 
-# Self-provision the synthetic dataset so the test runs from a clean checkout.
-if not os.path.exists(os.path.join(ROOT, "data", "dataset.json")):
-    os.system(f'python3 {os.path.join(ROOT, "tests", "make_synthetic_dataset.py")} '
-              f'{os.path.join(ROOT, "data", "dataset.json")}')
+# Serve a scratch copy rather than the repo itself. The checked-in dataset
+# points its photos at Commons' CDN, which the test can neither rely on nor
+# reach offline; the synthetic set ships local image files instead, so the
+# photo paths are genuinely exercised and the run doesn't depend on the network
+# or on whatever happens to be committed under data/.
+ROOT = tempfile.mkdtemp(prefix="unescle-test-")
+shutil.copy(os.path.join(REPO, "unescle.html"), ROOT)
+subprocess.run([sys.executable, os.path.join(REPO, "tests", "make_synthetic_dataset.py"),
+                os.path.join(ROOT, "data", "dataset.json")],
+               check=True, stdout=subprocess.DEVNULL)
 
 def check(cond, label, detail=""):
     print(("  PASS " if cond else "  FAIL ") + label + (f"  [{detail}]" if detail and not cond else ""))
@@ -51,8 +57,11 @@ def main():
 
                 pool = page.evaluate("POOL.length")
                 check(pool > 2000, "loaded full dataset from data/dataset.json", f"POOL={pool}")
-                tiers = page.evaluate("targets.map(t=>t.tier)")
-                check(sorted(tiers) == [1,2,3], "one target per fame tier", str(tiers))
+                plan = page.evaluate("targets.map(t=>({type:t.type,tier:t.tier}))")
+                check([p["type"] for p in plan] == ["material", "immaterial", "material"],
+                      "two material rounds and one intangible", str(plan))
+                check(sorted(p["tier"] for p in plan) == [1, 2, 3],
+                      "difficulty ramps across the three rounds", str(plan))
                 ids = page.evaluate("targets.map(t=>t.id)")
                 check(len(set(ids)) == 3, "three distinct targets", str(ids))
 
@@ -211,6 +220,7 @@ def main():
             ctx.close()
             browser.close()
 
+    shutil.rmtree(ROOT, ignore_errors=True)
     print("\n" + ("ALL CHECKS PASSED" if not FAILS else f"{len(FAILS)} FAILED: {FAILS}"))
     return 1 if FAILS else 0
 

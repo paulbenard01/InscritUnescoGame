@@ -400,12 +400,35 @@ function pickForDay(pool, tier){
   return pool[Math.abs(h) % pool.length];
 }
 
+/* Each day's three rounds: which type, and how obscure.
+   Two material to one intangible tracks the pools (~1,270 sites to ~850
+   elements), so neither runs dry ahead of the other, and the tiers ramp from
+   widely recognised to hidden gem across the day. */
+const ROUND_PLAN = [
+  { type: 'material',   tier: 1 },
+  { type: 'immaterial', tier: 2 },
+  { type: 'material',   tier: 3 }
+];
+
 function computeTargets(){
   BY_ID = new Map(POOL.map(d => [d.id, d]));
-  targets = [1,2,3].map(tier => pickForDay(POOL.filter(d => d.tier === tier), tier))
-                   .filter(Boolean);
-  // A pool missing a whole tier shouldn't cost the player a round.
-  while(targets.length < 3 && POOL.length) targets.push(pickForDay(POOL, targets.length + 7));
+  const used = new Set();
+  targets = ROUND_PLAN.map((plan, i) => {
+    // Narrow to type+tier, then relax rather than leave a round unfillable:
+    // type+tier -> type -> tier -> anything.
+    const tries = [
+      POOL.filter(d => d.type === plan.type && d.tier === plan.tier),
+      POOL.filter(d => d.type === plan.type),
+      POOL.filter(d => d.tier === plan.tier),
+      POOL
+    ];
+    for(const pool of tries){
+      const fresh = pool.filter(d => !used.has(d.id));
+      const pick = pickForDay(fresh.length ? fresh : pool, i);
+      if(pick){ used.add(pick.id); return pick; }
+    }
+    return null;
+  }).filter(Boolean);
 }
 
 async function loadDataset(){
