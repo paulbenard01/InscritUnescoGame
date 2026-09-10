@@ -58,6 +58,26 @@
   .photo-fallback svg{width:34px;height:34px;opacity:0.5;}
   .photo-credit{position:absolute;bottom:4px;right:8px;font-size:0.6rem;color:rgba(243,238,223,0.55);
     font-family:'JetBrains Mono',monospace;}
+  /* The board crops to 16:10, which hides most of the frame. Tapping opens the
+     whole photo so the player can read the detail they're guessing from. */
+  .photo-box.zoomable{cursor:zoom-in;}
+  .zoom-hint{position:absolute;top:6px;right:8px;width:26px;height:26px;border-radius:50%;
+    background:rgba(19,29,52,0.7);border:1px solid var(--gold-dim);display:none;
+    align-items:center;justify-content:center;pointer-events:none;}
+  .photo-box.zoomable .zoom-hint{display:flex;}
+  .zoom-hint svg{width:14px;height:14px;stroke:var(--gold);fill:none;stroke-width:2;}
+  .lightbox{position:fixed;inset:0;background:rgba(10,14,26,0.94);display:none;
+    flex-direction:column;align-items:center;justify-content:center;z-index:30;
+    padding:16px;padding-top:max(16px, env(safe-area-inset-top));
+    padding-bottom:max(16px, env(safe-area-inset-bottom));}
+  .lightbox.open{display:flex;}
+  .lightbox img{max-width:100%;max-height:82vh;object-fit:contain;border-radius:8px;
+    border:1px solid rgba(201,162,75,0.3);}
+  .lightbox-credit{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:0.68rem;
+    color:var(--ink-dim);text-align:center;max-width:640px;}
+  .lightbox-close{position:absolute;top:max(10px, env(safe-area-inset-top));right:14px;
+    background:transparent;border:1px solid var(--gold-dim);color:var(--gold);border-radius:6px;
+    min-width:44px;min-height:44px;font-size:1.1rem;cursor:pointer;}
 
   .map-wrap{background:var(--navy-2);border:1px solid rgba(201,162,75,0.25);border-radius:12px;padding:14px;margin-bottom:14px;}
   #mapSvg{width:100%;height:auto;display:block;}
@@ -155,6 +175,7 @@
       <span id="fallbackText"></span>
     </div>
     <span class="photo-credit" id="photoCredit"></span>
+    <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
   </div>
 
   <div class="map-wrap">
@@ -173,6 +194,12 @@
   <div class="final-result" id="finalResult" hidden></div>
 
   <footer id="guessCounter"></footer>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose" aria-label="Close">&times;</button>
+  <img id="lightboxImg" alt="">
+  <div class="lightbox-credit" id="lightboxCredit"></div>
 </div>
 
 <div class="modal-backdrop" id="modalBackdrop">
@@ -498,9 +525,20 @@ function render(){
   // photo
   const img = document.getElementById('siteImg'), fb = document.getElementById('photoFallback');
   img.style.display = ''; fb.style.display = 'none';
+  const box = document.getElementById('photoBox');
+  box.classList.remove('zoomable');
+  // Handlers must be attached before src: a cached image fires load immediately
+  // on assignment, and a handler set afterwards would never run.
+  img.onload = ()=> box.classList.add('zoomable');
+  img.onerror = ()=>{
+    img.style.display='none'; fb.style.display='flex';
+    box.classList.remove('zoomable');
+    document.getElementById('fallbackText').textContent = T.photoFallback;
+  };
   img.src = (target.image && target.image.path) || `images/${target.id}.jpg`;
   img.alt = roundFinished() ? target.names[lang] : '';
-  img.onerror = ()=>{ img.style.display='none'; fb.style.display='flex'; document.getElementById('fallbackText').textContent = T.photoFallback; };
+  // Re-render with the same src doesn't refire load; catch the already-decoded case.
+  if(img.complete && img.naturalWidth) box.classList.add('zoomable');
   const cr = target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
   document.getElementById('photoCredit').textContent = cr;
 
@@ -609,6 +647,26 @@ function renderFinal(){
     navigator.clipboard?.writeText(text);
   };
 }
+
+/* ---------- Photo viewer ----------
+   The board crops to 16:10; this shows the whole frame so the detail the player
+   is guessing from — architecture, vegetation, signage — is actually legible. */
+const lightbox = document.getElementById('lightbox');
+function openLightbox(){
+  const target = currentTarget();
+  const img = document.getElementById('siteImg');
+  if(!target || !document.getElementById('photoBox').classList.contains('zoomable')) return;
+  document.getElementById('lightboxImg').src = img.src;
+  document.getElementById('lightboxImg').alt = roundFinished() ? target.names[lang] : '';
+  document.getElementById('lightboxCredit').textContent =
+    target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
+  lightbox.classList.add('open');
+}
+function closeLightbox(){ lightbox.classList.remove('open'); }
+document.getElementById('photoBox').addEventListener('click', openLightbox);
+document.getElementById('lightboxClose').addEventListener('click', e=>{ e.stopPropagation(); closeLightbox(); });
+lightbox.addEventListener('click', closeLightbox);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeLightbox(); });
 
 /* ---------- Info modal ---------- */
 function openInfoModal(entry){

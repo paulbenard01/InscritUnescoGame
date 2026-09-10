@@ -84,7 +84,11 @@ DESIGNATIONS = [
 
 PAGE_SIZE = 250
 ALIASES_PER_LANG = 4
-IMAGE_WIDTH = 640          # photo box renders at <=480 CSS px; 640 covers retina
+# The photo box crops to 16:10 at ~450 CSS px, but tapping it opens the full
+# frame, so the source needs to carry real detail -- architecture, vegetation,
+# signage are what a player reads a continent off. 1024 is the balance between
+# that and what's reasonable to keep in the repo.
+IMAGE_WIDTH = 1024
 REQUEST_TIMEOUT = 90
 MAX_RETRIES = 5
 COMMONS_DELAY = 0.4        # be polite; raise if Commons starts 429ing

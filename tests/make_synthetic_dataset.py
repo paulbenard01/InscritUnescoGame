@@ -4,7 +4,7 @@ Stands in for the real pipeline output while Wikimedia egress is blocked: same
 shape, same field optionality (missing years, missing descriptions, missing
 photos, country-centroid coordinates), at realistic scale.
 """
-import json, os, random, sys
+import base64, json, os, random, sys
 
 random.seed(7)
 N_MAT, N_IMM = 1273, 849
@@ -53,3 +53,37 @@ with open(out, "w", encoding="utf-8") as f:
                "countries": COUNTRIES, "entries": entries}, f, ensure_ascii=False, separators=(",", ":"))
 print(f"wrote {len(entries)} synthetic entries to {out} "
       f"({os.path.getsize(out)/1024:.0f} KB)")
+
+# A real, decodable 96x60 JPEG. It has to actually decode: the game only marks
+# the photo zoomable on a successful load, so a malformed blob silently
+# disables the viewer and the test that covers it.
+SAMPLE_JPEG = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIf"
+    "IiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7"
+    "Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAA8AGADASIA"
+    "AhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQA"
+    "AAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3"
+    "ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWm"
+    "p6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEA"
+    "AwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSEx"
+    "BhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElK"
+    "U1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3"
+    "uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDgViqR"
+    "YqsLFT1irtczmhUIFiqRYqnWKpFirNzO2FQgWKpFiqdYqkWKs3M7YVCusVSLFVhYqesVZOZ2wqEC"
+    "xVIsVTrFUixVm5nZCoQLFT1iqwsVSLFWbmdsKhgLFUixVOsVSLFXS5n5fCoQLFT1iqwsVSLFWTmd"
+    "sKhXWKpFiqdYqkWKs3M7YVCBYqkWKp1iqRYqzczthUIFip6xVYWKpFirJzOyFQrrFUixVOsVSLFW"
+    "bmdsKhgLFUixVYWKpFirpcz8vhUK6xVIsVTrFUixVm5nbCoQLFUixVOsVSLFWTmdsKhXWKpFiqws"
+    "VSLFWbmdkKhXWKpFiqdYqkWKs3M7YVCBYqkWKp1iqRYqyczthUMBYqkWKplUU9VFdTmfmEJsiWKp"
+    "FiqVVFSKorNzO2E2QrFUixVMqipFUVk5nZCbIViqRYqlVRUiqKzczthNkSxU9YqmVRUiqKyczthN"
+    "kKxVIsVTKoqRVFZuZ2wmz//Z")
+# A real (tiny but decodable) JPEG per entry that claims a photo, so the image
+# path, the onerror placeholder and the zoom viewer are all genuinely exercised.
+img_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(out))), "images")
+os.makedirs(img_dir, exist_ok=True)
+written = 0
+for e in entries:
+    if "image" in e:
+        with open(os.path.join(img_dir, f"{e['id']}.jpg"), "wb") as f:
+            f.write(SAMPLE_JPEG)
+        written += 1
+print(f"wrote {written} placeholder JPEGs to {img_dir}")

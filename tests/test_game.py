@@ -165,6 +165,38 @@ def main():
                       f"{label} +keyboard: first suggestion on screen")
                 ctx.close()
 
+            # ---- photo viewer ----------------------------------------------
+            # The board crops to 16:10, so the full frame has to be reachable
+            # for a player to read detail off the photo. Checked on a phone,
+            # since that's where the crop hurts most.
+            print("\n== photo viewer ==")
+            ctx = browser.new_context(viewport={"width": 390, "height": 844},
+                                      has_touch=True, is_mobile=True)
+            page = ctx.new_page()
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.goto(base); page.wait_for_timeout(800)
+            # Not every entry has a photo, and the day's pick is deterministic —
+            # steer round 1 onto one that does so the check isn't luck-dependent.
+            page.evaluate("targets[0] = POOL.find(d => d.image); render();")
+            page.wait_for_timeout(600)
+            zoomable = page.evaluate("document.getElementById('photoBox').classList.contains('zoomable')")
+            check(zoomable, "photo box is zoomable once the image loads")
+            page.tap("#photoBox"); page.wait_for_timeout(300)
+            check(page.locator("#lightbox").get_attribute("class").find("open") >= 0,
+                  "tapping the photo opens the full frame")
+            # Licence and attribution must travel with the enlarged photo too.
+            check(page.locator("#lightboxCredit").inner_text().strip() != "",
+                  "viewer carries the credit + licence line")
+            check(page.evaluate("document.getElementById('lightboxImg').src") ==
+                  page.evaluate("document.getElementById('siteImg').src"),
+                  "viewer shows the same photo")
+            page.tap("#lightboxClose"); page.wait_for_timeout(300)
+            check(page.locator("#lightbox").get_attribute("class").find("open") < 0,
+                  "viewer closes")
+            check(not errors, "no uncaught page errors", "; ".join(errors[:3]))
+            ctx.close()
+
             # file:// -- fetch() is blocked, so the built-in demo set must take over.
             print("\n== file:// fallback ==")
             ctx = browser.new_context(); page = ctx.new_page()

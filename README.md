@@ -119,10 +119,19 @@ is pulled from Wikidata, and every fallback to English is counted and reported.
   are tiered separately: an intangible element with 12 sitelinks is famous, a
   World Heritage Site with 12 is obscure.
 - **Licensing.** Every photo keeps its Commons licence and attribution, shown in
-  the `.photo-credit` line. Non-commercial-only photos are flagged
-  (`image.nonCommercial`) and listed in `data/noncommercial_images.json` —
-  flagged, never silently discarded, in case the site ever needs to be
-  commercial-safe.
+  the `.photo-credit` line *and* carried into the enlarged view. Non-commercial-only
+  photos are flagged (`image.nonCommercial`) and listed in
+  `data/noncommercial_images.json` — flagged, never silently discarded, in case
+  the site ever needs to be commercial-safe.
+- **Photo resolution.** Sources are fetched at 1024px wide. The board crops to
+  16:10 at ~450 CSS px, which hides most of the frame, so tapping the photo
+  opens the whole thing — the architecture, vegetation and signage a player
+  actually reads a continent off. `IMAGE_WIDTH` in `build_dataset.py` trades
+  that detail against repo size.
+
+`data/` and `images/` are gitignored: a local test run writes a *synthetic*
+dataset and placeholder photos there, and this stops them being committed by
+hand. The Build dataset workflow force-adds the real ones.
 
 ## Tests
 

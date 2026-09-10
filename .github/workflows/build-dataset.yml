@@ -56,7 +56,7 @@ jobs:
             # Branch smoke configuration. Edit this line to widen a branch run
             # (it shows up in the diff); an incidental push must never start a
             # full crawl by accident.
-            ARGS="--limit 40 --skip-images"
+            ARGS="--limit 60"
           else
             ARGS=""
             if [ -n "${{ inputs.limit }}" ]; then ARGS="$ARGS --limit ${{ inputs.limit }}"; fi
@@ -114,7 +114,9 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A data images 2>/dev/null || git add -A data
+          # -f because data/ and images/ are gitignored, so a local test run's
+          # synthetic output can't be committed by hand. These are the real ones.
+          git add -f data images 2>/dev/null || git add -f data
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
