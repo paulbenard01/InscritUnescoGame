@@ -1,0 +1,39 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q218"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Europe",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Europe",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q878"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    }
+   }
+  ]
+ }
+}

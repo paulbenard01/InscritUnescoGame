@@ -1,0 +1,307 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q170471"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Göreme National Park",
+     "xml:lang": "en"
+    },
+    "labelFr": {
+     "type": "literal",
+     "value": "Parc national de Göreme",
+     "xml:lang": "fr"
+    },
+    "labelEs": {
+     "type": "literal",
+     "value": "Parque Nacional de Göreme",
+     "xml:lang": "es"
+    },
+    "descEn": {
+     "type": "literal",
+     "value": "Volcanic rock landscape in Türkiye",
+     "xml:lang": "en"
+    },
+    "descFr": {
+     "type": "literal",
+     "value": "Paysage de roches volcaniques",
+     "xml:lang": "fr"
+    },
+    "altEn": {
+     "type": "literal",
+     "value": "Cappadocia",
+     "xml:lang": "en"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "38.65"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "34.83"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "52"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "1985-01-01T00:00:00Z"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Goreme.jpg"
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q43"
+    },
+    "countryEn": {
+     "type": "literal",
+     "value": "Türkiye",
+     "xml:lang": "en"
+    },
+    "countryFr": {
+     "type": "literal",
+     "value": "Turquie",
+     "xml:lang": "fr"
+    },
+    "countryEs": {
+     "type": "literal",
+     "value": "Turquía",
+     "xml:lang": "es"
+    },
+    "continent": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q48"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    },
+    "criterionEn": {
+     "type": "literal",
+     "value": "World Heritage selection criterion (i)",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q170471"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Göreme National Park",
+     "xml:lang": "en"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "38.65"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "34.83"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "52"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Goreme_2.jpg"
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q43"
+    },
+    "countryEn": {
+     "type": "literal",
+     "value": "Türkiye",
+     "xml:lang": "en"
+    },
+    "criterionEn": {
+     "type": "literal",
+     "value": "World Heritage selection criterion (vii)",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q41225"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Sagarmatha National Park",
+     "xml:lang": "en"
+    },
+    "descEn": {
+     "type": "literal",
+     "value": "National park in Nepal",
+     "xml:lang": "en"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "27.98"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "86.92"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "31"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "1979-01-01T00:00:00Z"
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q837"
+    },
+    "countryEn": {
+     "type": "literal",
+     "value": "Nepal",
+     "xml:lang": "en"
+    },
+    "countryFr": {
+     "type": "literal",
+     "value": "Népal",
+     "xml:lang": "fr"
+    },
+    "countryEs": {
+     "type": "literal",
+     "value": "Nepal",
+     "xml:lang": "es"
+    },
+    "continentEn": {
+     "type": "literal",
+     "value": "Asia",
+     "xml:lang": "en"
+    },
+    "criterionEn": {
+     "type": "literal",
+     "value": "World Heritage selection criterion (vii)",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q131013"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Historic Centre of Sighisoara",
+     "xml:lang": "en"
+    },
+    "labelFr": {
+     "type": "literal",
+     "value": "Centre historique de Sighisoara",
+     "xml:lang": "fr"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "46.22"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "24.79"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "9"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "1999-01-01T00:00:00Z"
+    },
+    "image": {
+     "type": "uri",
+     "value": "http://commons.wikimedia.org/wiki/Special:FilePath/Sighisoara.jpg"
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q218"
+    },
+    "countryEn": {
+     "type": "literal",
+     "value": "Romania",
+     "xml:lang": "en"
+    },
+    "countryFr": {
+     "type": "literal",
+     "value": "Roumanie",
+     "xml:lang": "fr"
+    },
+    "countryEs": {
+     "type": "literal",
+     "value": "Rumania",
+     "xml:lang": "es"
+    },
+    "criterionEn": {
+     "type": "literal",
+     "value": "World Heritage selection criterion (iii)",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999001"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "Historic Centre of Sighisoara",
+     "xml:lang": "en"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "45.0"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "25.0"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "2"
+    },
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q218"
+    },
+    "countryEn": {
+     "type": "literal",
+     "value": "Romania",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999002"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "1.0"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "1.0"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "0"
+    }
+   }
+  ]
+ }
+}

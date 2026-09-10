@@ -1,0 +1,48 @@
+{
+ "results": {
+  "bindings": [
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q29"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "40.0"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "-4.0"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q878"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "24.0"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "54.0"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q668"
+    },
+    "lat": {
+     "type": "literal",
+     "value": "21.0"
+    },
+    "lon": {
+     "type": "literal",
+     "value": "78.0"
+    }
+   }
+  ]
+ }
+}
