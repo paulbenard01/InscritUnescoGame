@@ -28,7 +28,7 @@ jobs:
 
       - name: Compare
         env:
-          UNESCLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+          HERITLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
         run: |
           set -euo pipefail
           if [ ! -f data/dataset.json ]; then

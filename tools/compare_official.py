@@ -22,8 +22,8 @@ import xml.etree.ElementTree as ET
 
 import requests
 
-CONTACT = os.environ.get("UNESCLE_CONTACT", "paulbenard01@gmail.com")
-HEADERS = {"User-Agent": f"Unescle-audit/1.0 ({CONTACT}; dataset completeness check)"}
+CONTACT = os.environ.get("HERITLE_CONTACT", "paulbenard01@gmail.com")
+HEADERS = {"User-Agent": f"Heritle-audit/1.0 ({CONTACT}; dataset completeness check)"}
 SPARQL_URL = "https://query.wikidata.org/sparql"
 TIMEOUT = 90
 

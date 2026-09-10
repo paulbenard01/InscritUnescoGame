@@ -1,5 +1,5 @@
 """
-Unescle dataset + image builder.
+Heritle dataset + image builder.
 
 Pulls World Heritage Sites and Intangible Cultural Heritage elements from
 Wikidata via SPARQL, downloads a freely-licensed thumbnail per entry from
@@ -31,7 +31,7 @@ continents come from a single query over the distinct country QIDs rather than
 riding along on every item row.
 
 *Categorical fields are codes, not prose.* continent, category and type are
-emitted as stable codes ("EU", "cultural", ...) and translated in unescle.html's
+emitted as stable codes ("EU", "cultural", ...) and translated in heritle.html's
 i18n table. Only per-entry text that genuinely varies -- names, country names,
 descriptions -- is translated here. That guarantees the clue tiles read
 correctly in all three languages even where Wikidata's fr/es coverage is thin,
@@ -64,9 +64,9 @@ import requests
 print = functools.partial(print, flush=True)  # keep stdout ordered against stderr
 
 # Wikimedia requires a descriptive User-Agent with contact info or it will
-# start rejecting requests. Override with UNESCLE_CONTACT once the repo is public.
-CONTACT = os.environ.get("UNESCLE_CONTACT", "paulbenard01@gmail.com")
-HEADERS = {"User-Agent": f"Unescle/1.0 ({CONTACT}; personal heritage guessing game)"}
+# start rejecting requests. Override with HERITLE_CONTACT once the repo is public.
+CONTACT = os.environ.get("HERITLE_CONTACT", "paulbenard01@gmail.com")
+HEADERS = {"User-Agent": f"Heritle/1.0 ({CONTACT}; personal heritage guessing game)"}
 
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
@@ -774,7 +774,7 @@ def to_entry(it, seen_ids, coverage):
 
 def main():
     global FIXTURES
-    ap = argparse.ArgumentParser(description="Build the Unescle dataset.")
+    ap = argparse.ArgumentParser(description="Build the Heritle dataset.")
     ap.add_argument("--limit", type=int, help="cap items per designation (smoke test)")
     ap.add_argument("--skip-images", action="store_true",
                     help="skip Commons entirely: no photo URLs, no downloads")
@@ -848,12 +848,25 @@ def main():
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 
-    country_table = {
-        q: {"en": r.get("en") or q,
-            "fr": r.get("fr") or r.get("en") or q,
-            "es": r.get("es") or r.get("en") or q}
-        for q, r in countries.items() if r.get("en") or r.get("fr") or r.get("es")
-    }
+    # Countries are the guessing vocabulary, so each one needs a coordinate:
+    # the game measures every guess from the country's centroid to the target.
+    # A country with no coordinate can't be guessed, so it's counted and named.
+    country_table = {}
+    no_coord = []
+    for q, r in countries.items():
+        if not (r.get("en") or r.get("fr") or r.get("es")):
+            continue
+        rec = {"en": r.get("en") or q,
+               "fr": r.get("fr") or r.get("en") or q,
+               "es": r.get("es") or r.get("en") or q}
+        if r.get("coord"):
+            rec["lat"], rec["lng"] = round(r["coord"][0], 4), round(r["coord"][1], 4)
+        else:
+            no_coord.append(rec["en"])
+        country_table[q] = rec
+    if no_coord:
+        print(f"  {len(no_coord)} countries have no coordinate and can't be guessed: "
+              f"{', '.join(sorted(no_coord)[:8])}", file=sys.stderr)
 
     n = len(dataset) or 1
     meta = {

@@ -9,7 +9,14 @@ import base64, json, os, random, sys
 random.seed(7)
 N_MAT, N_IMM = 1273, 849
 CONTINENTS = ["EU", "AS", "AF", "NA", "SA", "OC"]
-COUNTRIES = {f"Q{100+i}": {"en": f"Country {i}", "fr": f"Pays {i}", "es": f"País {i}"} for i in range(60)}
+# Countries are the guessing vocabulary and every guess is measured from the
+# country's centroid, so they need coordinates.
+COUNTRIES = {
+    f"Q{100+i}": {"en": f"Country {i}", "fr": f"Pays {i}", "es": f"País {i}",
+                  "lat": round(random.uniform(-50, 65), 4),
+                  "lng": round(random.uniform(-170, 170), 4)}
+    for i in range(60)
+}
 CATS_M = ["cultural", "natural", "mixed", "site"]
 
 def make(i, kind):
