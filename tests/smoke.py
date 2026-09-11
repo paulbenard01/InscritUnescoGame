@@ -656,10 +656,38 @@ def main():
         expected_ach = page.evaluate("ACHIEVEMENTS.length")
         check(expected_ach >= 20, "there are distinctions worth chasing",
               str(expected_ach))
+        # Earned enough to be worth showing, rather than whatever four entries
+        # in one day happens to unlock -- otherwise "only the earned ones are
+        # shown" passes against an empty list and proves nothing.
+        page.evaluate("""
+          () => {
+            POOL.slice(0, 60).forEach(e => catalogue(e, true));
+            profile.days[dayIndex] = { score: MAX_SCORE,
+              statuses: ['solved','solved','solved','solved'] };
+            checkAchievements();
+            renderPassport();
+          }
+        """)
+        page.wait_for_timeout(250)
         earned = page.evaluate("profile.achievements.length")
+        check(earned >= 5, "a filled collection earns a spread of distinctions",
+              str(earned))
         shown = page.locator("#viewPassport > .ach-list > .ach").count()
         check(shown == earned, "only the earned distinctions are on the page",
               f"{shown} shown, {earned} earned")
+        head = page.locator("#viewPassport .panel-head p").last.inner_text()
+        check(str(earned) in head and str(expected_ach) in head,
+              "the heading counts what is earned against what exists", head)
+        # An earned stamp is turned; a locked one sits straight.
+        rot = page.evaluate("""
+          () => {
+            const e = document.querySelector('#viewPassport > .ach-list .stamp-mark');
+            const l = document.querySelector('.ach-locked .stamp-mark');
+            return [getComputedStyle(e).transform, l ? getComputedStyle(l).transform : 'none'];
+          }
+        """)
+        check(rot[0] != "none" and rot[0] != rot[1],
+              "an earned stamp is struck at an angle, a locked one is not", str(rot))
         det = page.locator("#viewPassport .ach-locked")
         check(det.count() == 1, "the rest are behind a disclosure")
         check(not page.evaluate(
