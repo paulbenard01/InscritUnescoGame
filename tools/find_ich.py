@@ -164,6 +164,19 @@ SHORTFALL = [
     ("with their own coordinate (P625)", "?item wdt:P625 ?xy ."),
     ("with a label AND a country",
      '?item rdfs:label ?lab . FILTER(lang(?lab)="en") ?item wdt:P17 ?c .'),
+    # P17 turned out to be the binding constraint -- naming is not, 902 of 916
+    # have an English label. Traditions are often not modelled with "country"
+    # at all, so check the properties that carry the same fact by another name
+    # before concluding the pool simply cannot be larger.
+    ("-- alternatives to P17 --", None),
+    ("country of origin (P495)", "?item wdt:P495 ?c ."),
+    ("applies to jurisdiction (P1001)", "?item wdt:P1001 ?c ."),
+    ("country on the inscription itself", "?item p:P3259 [ pq:P17 ?c ] ."),
+    ("indigenous to (P2341)", "?item wdt:P2341 ?c ."),
+    ("P17 or P495", "{ ?item wdt:P17 ?c } UNION { ?item wdt:P495 ?c }"),
+    ("P17, P495, P1001 or P2341",
+     "{ ?item wdt:P17 ?c } UNION { ?item wdt:P495 ?c } "
+     "UNION { ?item wdt:P1001 ?c } UNION { ?item wdt:P2341 ?c }"),
 ]
 
 
@@ -174,6 +187,9 @@ def report_shortfall():
     print("-" * 72)
     counts = {}
     for label, clause in SHORTFALL:
+        if clause is None:           # section divider
+            print(f"\n  {label}")
+            continue
         q = f"SELECT (COUNT(DISTINCT ?item) AS ?n) WHERE {{ {POOL_SPINE} {clause} }}"
         n = scalar(q, None)
         counts[label] = n
@@ -183,6 +199,18 @@ def report_shortfall():
     if isinstance(total, int) and isinstance(usable, int):
         print(f"\n  {total - usable} of {total} cannot be placed or named, which is")
         print("  the gap between the lists and the pool the game draws from.")
+    widest = counts.get("P17, P495, P1001 or P2341")
+    p17 = counts.get("with a country (P17)")
+    if isinstance(widest, int) and isinstance(p17, int):
+        gain = widest - p17
+        print(f"\n  Accepting the alternatives would place {gain} more elements "
+              f"({p17} -> {widest}).")
+        if gain > 40:
+            print("  Worth doing: that is most of the shortfall, and it is a")
+            print("  one-clause change to the pipeline's country lookup.")
+        else:
+            print("  Not worth doing: the elements simply have no country")
+            print("  recorded on Wikidata under any of these properties.")
     return counts
 
 
