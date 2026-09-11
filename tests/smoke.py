@@ -436,7 +436,13 @@ def main():
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
         check(page.locator("#viewPassport .ach").count() == 5, "five distinctions listed")
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
-        check(page.locator("#viewArchive .arch-row").count() > 5, "archive lists past days")
+        # One row per day since launch, capped at the 60 the archive shows. On
+        # day one that is a single row -- an archive of days nobody could have
+        # played would be padding, not history.
+        expected = min(page.evaluate("todayIndex") + 1, 61)
+        check(page.locator("#viewArchive .arch-row").count() == expected,
+              "archive lists one row per day since launch",
+              f"{page.locator('#viewArchive .arch-row').count()} vs {expected}")
         # colour-blind toggle
         page.evaluate("showView('Passport')"); page.wait_for_timeout(200)
         page.check("#cbToggle"); page.wait_for_timeout(200)

@@ -678,69 +678,6 @@ def resolve_countries(items):
 # Images
 # ---------------------------------------------------------------------------
 
-def commons_imageinfo(filename):
-    if FIXTURES:
-        return FIXTURES.imageinfo(filename)
-    for attempt in range(3):
-        try:
-            r = requests.get(COMMONS_API, params={
-                "action": "query", "titles": f"File:{filename}", "prop": "imageinfo",
-                "iiprop": "url|extmetadata", "iiurlwidth": IMAGE_WIDTH, "format": "json",
-            }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-            if r.status_code == 429:
-                time.sleep(int(r.headers.get("Retry-After") or 5))
-                continue
-            r.raise_for_status()
-            page = next(iter(r.json()["query"]["pages"].values()))
-            info = (page.get("imageinfo") or [None])[0]
-            if not info:
-                return None
-            meta = info.get("extmetadata", {})
-            strip = lambda s: re.sub(r"<[^<]+?>", "", s or "").strip()
-            return {
-                "thumb_url": info.get("thumburl") or info.get("url"),
-                "license": meta.get("LicenseShortName", {}).get("value", "unknown"),
-                "artist": strip(meta.get("Artist", {}).get("value", "")),
-                "credit": strip(meta.get("Credit", {}).get("value", "")),
-                "descriptionurl": info.get("descriptionurl", ""),
-            }
-        except (requests.RequestException, ValueError, StopIteration, KeyError):
-            time.sleep(2 ** (attempt + 1))
-    return None
-
-
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
-_warned_no_pillow = False
-
-
-def recompress(data):
-    """Re-encode a Commons thumbnail at IMAGE_QUALITY, keeping its dimensions.
-
-    Returns the original bytes unchanged if Pillow is missing or the image
-    won't decode -- a photo at the wrong size beats no photo.
-    """
-    global _warned_no_pillow
-    if Image is None:
-        if not _warned_no_pillow:
-            print("  note: Pillow not installed, keeping Commons' original file sizes "
-                  "(~3x larger). pip install Pillow", file=sys.stderr)
-            _warned_no_pillow = True
-        return data
-    try:
-        import io
-        im = Image.open(io.BytesIO(data))
-        im = im.convert("RGB")  # drops alpha and palette modes JPEG can't hold
-        buf = io.BytesIO()
-        im.save(buf, "JPEG", quality=IMAGE_QUALITY, optimize=True, progressive=True)
-        out = buf.getvalue()
-        return out if len(out) < len(data) else data
-    except Exception:
-        return data
-
-
 def commons_imageinfo_many(filenames):
     """imageinfo for up to 50 files in one request.
 
@@ -830,7 +767,7 @@ def is_photo(filename):
     return filename.lower().endswith(PHOTO_EXT)
 
 
-def resolve_photos(dataset, all_items, download=False):
+def resolve_photos(dataset, all_items):
     """Attach up to PHOTOS_PER_ENTRY usable Commons photos to every entry.
 
     One photo was a coin toss: plenty of inscriptions have a single P18 that
@@ -908,45 +845,6 @@ def resolve_photos(dataset, all_items, download=False):
     print(f"  {got}/{len(dataset)} entries have a photo; "
           f"{sum(1 for e in dataset if e.get('photos'))} have more than one "
           f"({extra} photos in all)")
-
-
-def download_image(entry, image_uris, out_dir="images", download=False):
-    """Attach the first usable Commons photo. Licence + attribution always ride
-    along with the file -- the credit line in-game depends on it."""
-    for uri in image_uris[:3]:
-        filename = unquote(uri.split("/")[-1]).replace("_", " ")
-        info = commons_imageinfo(filename)
-        if not FIXTURES:
-            time.sleep(COMMONS_DELAY)
-        if not info or not info["thumb_url"]:
-            continue
-        path = f"{out_dir}/{entry['id']}.jpg"
-        if FIXTURES or not download:
-            pass  # metadata only: the game loads info["thumb_url"] from Commons
-        elif not os.path.exists(path):  # resumable: don't re-download on a rerun
-            os.makedirs(out_dir, exist_ok=True)
-            try:
-                img = requests.get(info["thumb_url"], headers=HEADERS, timeout=REQUEST_TIMEOUT)
-                img.raise_for_status()
-                if not img.headers.get("Content-Type", "").startswith("image/"):
-                    continue
-                with open(path, "wb") as f:
-                    f.write(recompress(img.content))
-            except requests.RequestException:
-                continue
-        entry["image"] = {
-            "url": info["thumb_url"],
-            "file": filename,
-            "license": info["license"],
-            "credit": info["artist"] or info["credit"] or "Wikimedia Commons",
-            "source": info["descriptionurl"],
-        }
-        if download:
-            entry["image"]["path"] = path
-        if is_noncommercial(info["license"]):
-            entry["image"]["nonCommercial"] = True
-        return True
-    return False
 
 
 # ---------------------------------------------------------------------------
@@ -1159,9 +1057,8 @@ def main():
     assign_tiers(dataset)
 
     if not args.skip_images:
-        print("\nResolving photos..." if not args.download_images
-              else "\nDownloading photos...")
-        resolve_photos(dataset, all_items, download=args.download_images)
+        print("\nResolving photos...")
+        resolve_photos(dataset, all_items)
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 

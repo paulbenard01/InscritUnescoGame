@@ -736,7 +736,11 @@ function buildCountries(table){
 }
 
 /* ---------- Day / targets (one per tier) ---------- */
-const EPOCH = Date.UTC(2024,0,1);
+/* Launch day. Day one of the public game is the day it opened, not a date
+   picked while building it -- with the old epoch the first visitor would have
+   been handed puzzle 620 and an archive of six hundred days nobody played.
+   Moving this re-deals every day's puzzle, so it moves once, at launch. */
+const EPOCH = Date.UTC(2026,8,11);
 const now = new Date();
 const todayIndex = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 86400000);
 
@@ -874,9 +878,12 @@ async function loadDataset(){
    and scored out of 150 rather than 100, so a stored day's score and status
    list mean something different from what they meant when they were written.
 
+   And again at launch, when day one was moved to the opening date: every
+   stored day is keyed by an index that now points at a different puzzle.
+
    Bump this only when stored data genuinely cannot be reconciled: it throws
    away real play. */
-const STORAGE_GEN = '3';
+const STORAGE_GEN = '4';
 const GEN_KEY = 'heritle-gen';
 try{
   if(localStorage.getItem(GEN_KEY) !== STORAGE_GEN){
@@ -1626,7 +1633,8 @@ function renderFinal(){
     linksBox.appendChild(b);
   });
   document.getElementById('shareBtn').onclick = ()=>{
-    const text = `Heritle — Day #${dayIndex}\n${lines}\n${totalScore()}/${MAX_SCORE}`;
+    // Day one is the first day, not the zeroth.
+    const text = `Heritle — Day ${dayIndex + 1}\n${lines}\n${totalScore()}/${MAX_SCORE}`;
     navigator.clipboard?.writeText(text);
   };
 }
@@ -1908,7 +1916,7 @@ function renderArchive(){
     const date = new Date(EPOCH + d * 86400000).toISOString().slice(0,10);
     rows.push(`<div class="arch-row">
       <span class="arch-day">${date}${d===todayIndex ? ' ·' : ''}</span>
-      <span class="arch-score">${rec ? T.scoreOf(Math.round(rec.score)) : '—'}</span>
+      <span class="arch-score">${rec ? T.scoreOf(Math.round(rec.score), MAX_SCORE) : '—'}</span>
       <a class="btn secondary" style="font-size:0.68rem;padding:7px 11px"
          href="?day=${d}">${d===todayIndex ? T.navGame : T.archiveOpen}</a></div>`);
   }
