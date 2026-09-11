@@ -44,6 +44,26 @@ def serve(root):
     return httpd, httpd.server_address[1]
 
 
+TAP_JS = """(pt) => {
+  const p = project(pt.lat, pt.lng);
+  const svg = document.getElementById('mapSvg');
+  const r = svg.getBoundingClientRect();
+  svg.dispatchEvent(new MouseEvent('click', {
+    clientX: r.left + ((p.x - mapView.x) / mapView.w) * r.width,
+    clientY: r.top  + ((p.y - mapView.y) / mapView.h) * r.height,
+    bubbles: true }));
+}"""
+
+
+def tap_guess(page, country_js):
+    """Guess by pointing at the map, the way a player does."""
+    pt = page.evaluate(f"() => {{ const c = {country_js}; return {{lat:c.lat, lng:c.lng}}; }}")
+    page.evaluate(TAP_JS, pt)
+    page.wait_for_timeout(180)
+    page.click("#confirmGuess")
+    page.wait_for_timeout(220)
+
+
 def T_BONUS_INTRO_SHOWN(page):
     """The one-guess rule has to be visible before the guess is spent."""
     return page.evaluate("""
@@ -80,6 +100,21 @@ def play_day(page, base, day, width, label):
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
     check(page.evaluate("targets.length") == 4, f"{label}: four targets chosen")
+    # Guessing is done by pointing at the map. Every country the game will
+    # accept has to be reachable that way, or it cannot be guessed at all.
+    check(page.evaluate("!!LAND_SHAPES"), f"{label}: country shapes loaded")
+    unreachable = page.evaluate(
+        "() => COUNTRIES.filter(c => !c.iso || !LAND_SHAPES[c.iso]).length")
+    check(unreachable == 0, f"{label}: every guessable country is on the map",
+          f"{unreachable} unreachable")
+    # Open water is not a guess, and must not spend one.
+    before = page.evaluate("state.guesses[0].length")
+    page.evaluate(TAP_JS, {"lat": 0, "lng": -140})
+    page.wait_for_timeout(200)
+    check(page.evaluate("state.guesses[0].length") == before,
+          f"{label}: tapping open water does not spend a guess")
+    check(page.locator("#pendingGuess").is_hidden(),
+          f"{label}: open water proposes nothing")
     # The detailed geometry is fetched, not inlined, so a missing or
     # canvas-mismatched file degrades silently to the coarse outline.
     check(page.evaluate("LAND_PATH !== null"), f"{label}: detailed map geometry loaded")
@@ -110,11 +145,11 @@ def play_day(page, base, day, width, label):
     # ---- a guess must report its verdict without scrolling ----
     # The verdict used to live only in the history list below the map, so on a
     # phone a guess looked like it had done nothing.
-    wrong_first = page.evaluate("""
-      () => COUNTRIES.find(c => c.names.en !== targets[0].country.en).id
-    """)
-    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", wrong_first)
-    page.wait_for_timeout(700)      # the panel is scrolled into view smoothly
+    # Played through the map rather than by calling submitGuess: the input is
+    # the part most likely to break, and driving the game past it would hide
+    # exactly that.
+    tap_guess(page, "COUNTRIES.find(c => c.names.en !== targets[0].country.en)")
+    page.wait_for_timeout(600)      # the panel is scrolled into view smoothly
     readout = page.locator("#mapReadout")
     check("last-guess" in (readout.get_attribute("class") or ""),
           f"{label}: the guess verdict is shown under the map")

@@ -26,6 +26,26 @@ _land = os.path.join(REPO, "data", "land.json")
 if os.path.exists(_land):
     shutil.copy(_land, os.path.join(ROOT, "data", "land.json"))
 
+TAP_JS = """(pt) => {
+  const p = project(pt.lat, pt.lng);
+  const svg = document.getElementById('mapSvg');
+  const r = svg.getBoundingClientRect();
+  svg.dispatchEvent(new MouseEvent('click', {
+    clientX: r.left + ((p.x - mapView.x) / mapView.w) * r.width,
+    clientY: r.top  + ((p.y - mapView.y) / mapView.h) * r.height,
+    bubbles: true }));
+}"""
+
+
+def tap_country(page, country_js):
+    """Tap the map at a country's centroid and commit the guess."""
+    pt = page.evaluate(f"() => {{ const c = {country_js}; return {{lat:c.lat, lng:c.lng}}; }}")
+    page.evaluate(TAP_JS, pt)
+    page.wait_for_timeout(200)
+    page.click("#confirmGuess")
+    page.wait_for_timeout(250)
+
+
 def check(cond, label, detail=""):
     print(("  PASS " if cond else "  FAIL ") + label + (f"  [{detail}]" if detail and not cond else ""))
     if not cond:
@@ -107,17 +127,26 @@ def main():
                 # Guesses are countries now, never site names.
                 check(page.evaluate("COUNTRIES.length") > 10, "country list loaded",
                       str(page.evaluate("COUNTRIES.length")))
-                site_name = page.evaluate("targets[0].names.en")
-                page.fill("#guessInput", site_name[:14]); page.wait_for_timeout(250)
-                check(page.locator(".suggestion").count() == 0,
-                      "typing the site name suggests nothing (names aren't the solve)")
+                # The map is the input: every country the game knows must be
+                # reachable by pointing at it.
+                check(page.evaluate("!!LAND_SHAPES"), "country shapes loaded for hit-testing")
+                unreachable = page.evaluate("""
+                  () => COUNTRIES.filter(c => !c.iso || !LAND_SHAPES[c.iso]).length
+                """)
+                check(unreachable == 0, "every guessable country is on the map",
+                      f"{unreachable} unreachable")
 
-                # A wrong country: distance readout, history row, map pin.
-                wrong = page.evaluate(
-                    "COUNTRIES.find(c=>c.names.en!==targets[0].country.en).names.en")
-                page.fill("#guessInput", wrong[:12]); page.wait_for_timeout(250)
-                check(page.locator(".suggestion").count() > 0, "autocomplete suggests countries")
-                page.locator(".suggestion").first.click(); page.wait_for_timeout(250)
+                # A tap proposes; it must not spend a guess on its own.
+                wrongC = "COUNTRIES.find(c=>c.names.en!==targets[0].country.en)"
+                pt = page.evaluate(f"() => {{ const c = {wrongC}; return {{lat:c.lat,lng:c.lng}}; }}")
+                page.evaluate(TAP_JS, pt); page.wait_for_timeout(250)
+                check(page.locator("#pendingGuess").is_hidden() is False,
+                      "a tap proposes a country")
+                check(page.evaluate("state.guesses[0].length") == 0,
+                      "a tap alone does not spend a guess")
+                check(page.locator("#pendingName").inner_text() != "",
+                      "the proposed country is named")
+                page.click("#confirmGuess"); page.wait_for_timeout(250)
                 check(page.locator(".hist-row").count() == 1, "guess recorded in history")
                 # Each guess says what it already got right, so a try narrows
                 # the search instead of just reporting a number.
@@ -149,15 +178,11 @@ def main():
                 # submitGuess. The input was left disabled when round 1 ended,
                 # so rounds 2 and 3 were unplayable — and driving the game
                 # through submitGuess hid that completely.
-                check(page.evaluate("document.getElementById('guessInput').disabled") is False,
-                      "guess input is usable again in round 2")
-                nxt = page.evaluate(
-                    "COUNTRIES.find(c=>c.names.en!==targets[1].country.en).names.en")
-                page.fill("#guessInput", nxt[:10]); page.wait_for_timeout(250)
-                check(page.locator(".suggestion").count() > 0,
-                      "round 2 accepts typed guesses")
-                page.locator(".suggestion").first.click(); page.wait_for_timeout(250)
-                check(page.locator(".hist-row").count() >= 1, "round 2 records the guess")
+                check(page.locator("#pendingGuess").is_hidden(),
+                      "the previous round's proposal is cleared")
+                tap_country(page, "COUNTRIES.find(c=>c.names.en!==targets[1].country.en)")
+                check(page.locator(".hist-row").count() >= 1,
+                      "round 2 accepts a guess by tapping the map")
 
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(200)
                 page.click("#nextBtn"); page.wait_for_timeout(200)
@@ -189,9 +214,10 @@ def main():
                 ctx.close()
 
             # ---- mobile ----------------------------------------------------
-            # Regression guards for defects found at real phone widths: iOS
-            # auto-zoom on a sub-16px input, sub-44px tap targets, and the
-            # suggestion list rendering below the fold once the keyboard opens.
+            # Regression guards for defects found at real phone widths: sub-44px
+            # tap targets and horizontal overflow. The iOS auto-zoom and
+            # keyboard guards are gone with the text input -- guessing is done
+            # by tapping the map, so no keyboard ever opens.
             print("\n== mobile ==")
             metrics_js = """
               () => {
@@ -199,9 +225,9 @@ def main():
                 const h = sel => Math.round(document.querySelector(sel).getBoundingClientRect().height);
                 return {
                   over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-                  inputFont: px(document.getElementById('guessInput')),
                   langH: h('.lang-btn'),
-                  inputH: h('#guessInput'),
+                  mapH: h('.map-wrap'),
+                  zoomH: h('.map-zoom button'),
                 };
               }
             """
@@ -217,38 +243,17 @@ def main():
                 page.wait_for_timeout(120)
                 m = page.evaluate(metrics_js)
                 check(m["over"] <= 0, f"{label}: no horizontal overflow", f"{m['over']}px")
-                # Under 16px, iOS Safari zooms the page in on focus and stays there.
-                check(m["inputFont"] >= 16, f"{label}: input >=16px (no iOS zoom)",
-                      str(m["inputFont"]))
                 check(m["langH"] >= 44, f"{label}: language button >=44px", str(m["langH"]))
-                check(m["inputH"] >= 44, f"{label}: guess box >=44px", str(m["inputH"]))
+                # The map is the input now, so it has to be big enough to point
+                # at a small country without fighting it.
+                check(m["mapH"] >= 140, f"{label}: map is tappable ({m['mapH']}px)",
+                      str(m["mapH"]))
+                check(m["zoomH"] >= 34, f"{label}: zoom buttons >=34px", str(m["zoomH"]))
                 ctx.close()
 
-            # The suggestion list must stay on screen with the keyboard open.
-            # The viewport is shrunk to stand in for the room a keyboard leaves.
-            visible_js = """
-              () => {
-                const s = document.querySelector('.suggestion');
-                if (!s) return null;
-                const b = s.getBoundingClientRect();
-                return b.top >= 0 && b.bottom <= innerHeight;
-              }
-            """
-            for label, w, h in [("iPhone SE", 320, 308), ("Android", 360, 480),
-                                ("landscape", 740, 200)]:
-                ctx = browser.new_context(viewport={"width": w, "height": h},
-                                          has_touch=True, is_mobile=True)
-                page = ctx.new_page()
-                page.goto(base); page.wait_for_timeout(600)
-                # Field Notes covers the board on a first visit; each context is fresh.
-                page.evaluate("document.getElementById('fnClose')?.click()")
-                page.wait_for_timeout(120)
-                page.tap("#guessInput")
-                page.fill("#guessInput", page.evaluate("COUNTRIES[0].names.en")[:6])
-                page.wait_for_timeout(900)
-                check(page.evaluate(visible_js) is True,
-                      f"{label} +keyboard: first suggestion on screen")
-                ctx.close()
+            # The block that checked the suggestion list stayed clear of the
+            # on-screen keyboard is gone: there is no text input to focus, so
+            # no keyboard, and nothing for it to cover.
 
             # ---- photo viewer ----------------------------------------------
             # The board crops to 16:10, so the full frame has to be reachable

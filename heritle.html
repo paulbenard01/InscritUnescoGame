@@ -124,6 +124,9 @@
      round, so a tap proposes and a second, deliberate press commits. */
   .pending{display:flex;align-items:center;gap:10px;background:var(--navy-2);
     border:1px solid var(--gold);border-radius:8px;padding:8px 8px 8px 14px;}
+  /* An author display rule beats the UA stylesheet's [hidden], so the bar
+     stayed on screen, empty, with the attribute set. */
+  .pending[hidden]{display:none;}
   .pending-name{flex:1;font-size:0.95rem;color:var(--cream);font-weight:500;}
   .pending .btn{margin:0;flex:none;padding:10px 18px;}
 
