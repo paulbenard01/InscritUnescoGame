@@ -6,6 +6,10 @@
      "type": "uri",
      "value": "http://www.wikidata.org/entity/Q43"
     },
+    "iso": {
+     "type": "literal",
+     "value": "TR"
+    },
     "cEn": {
      "type": "literal",
      "value": "Türkiye",
@@ -35,6 +39,10 @@
     "country": {
      "type": "uri",
      "value": "http://www.wikidata.org/entity/Q837"
+    },
+    "iso": {
+     "type": "literal",
+     "value": "NP"
     },
     "cEn": {
      "type": "literal",
@@ -66,6 +74,10 @@
      "type": "uri",
      "value": "http://www.wikidata.org/entity/Q218"
     },
+    "iso": {
+     "type": "literal",
+     "value": "RO"
+    },
     "cEn": {
      "type": "literal",
      "value": "Romania",
@@ -95,6 +107,10 @@
     "country": {
      "type": "uri",
      "value": "http://www.wikidata.org/entity/Q29"
+    },
+    "iso": {
+     "type": "literal",
+     "value": "ES"
     },
     "cEn": {
      "type": "literal",
@@ -126,6 +142,10 @@
      "type": "uri",
      "value": "http://www.wikidata.org/entity/Q878"
     },
+    "iso": {
+     "type": "literal",
+     "value": "AE"
+    },
     "cEn": {
      "type": "literal",
      "value": "United Arab Emirates",
@@ -154,7 +174,36 @@
    {
     "country": {
      "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q12560"
+    },
+    "cEn": {
+     "type": "literal",
+     "value": "Ottoman Empire",
+     "xml:lang": "en"
+    },
+    "cFr": {
+     "type": "literal",
+     "value": "Empire ottoman",
+     "xml:lang": "fr"
+    },
+    "coord": {
+     "type": "literal",
+     "value": "41.0,29.0"
+    },
+    "contEn": {
+     "type": "literal",
+     "value": "Europe",
+     "xml:lang": "en"
+    }
+   },
+   {
+    "country": {
+     "type": "uri",
      "value": "http://www.wikidata.org/entity/Q668"
+    },
+    "iso": {
+     "type": "literal",
+     "value": "IN"
     },
     "cEn": {
      "type": "literal",

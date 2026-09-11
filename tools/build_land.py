@@ -83,7 +83,12 @@ def simplify(points, tol):
 
 
 def ring_to_path(ring):
-    """One projected, simplified ring as SVG path data, or None if too small.
+    """One projected, simplified ring, as SVG path data and as raw subpaths.
+
+    The path draws it; the subpaths are what a tap is tested against, so both
+    come from exactly the same simplification -- a country whose outline is
+    drawn one way and hit-tested another would reject taps that visibly land
+    inside it.
 
     Rings that straddle the antimeridian are dropped at the wrap rather than
     drawn across it: on an equirectangular canvas a segment from +179 to -179
@@ -93,15 +98,15 @@ def ring_to_path(ring):
     pts = [project(x, y) for x, y in ring
            if isinstance(x, (int, float)) and isinstance(y, (int, float))]
     if len(pts) < 4:
-        return None
+        return None, []
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
     if (max(xs) - min(xs)) < MIN_RING_EXTENT and (max(ys) - min(ys)) < MIN_RING_EXTENT:
-        return None
+        return None, []
 
     pts = simplify(pts, TOLERANCE)
     if len(pts) < 4:
-        return None
+        return None, []
 
     out, prev = [], None
     parts = []
@@ -130,7 +135,21 @@ def ring_to_path(ring):
     chunks = []
     for part in parts:
         chunks.append("M" + "L".join(f"{fmt(x)},{fmt(y)}" for x, y in part) + "Z")
-    return "".join(chunks) or None
+    return ("".join(chunks) or None), parts
+
+
+def iso_of(props):
+    """Natural Earth's ISO code for a feature, or None.
+
+    ISO_A2 is "-99" for places without one -- disputed or partially recognised
+    territories, mostly. Those are still drawn; they just cannot be guessed,
+    which matches the dataset, whose countries all come from Wikidata's P297.
+    """
+    for key in ("ISO_A2_EH", "ISO_A2", "iso_a2_eh", "iso_a2"):
+        v = props.get(key)
+        if v and v not in ("-99", "-099") and len(v) == 2:
+            return v.upper()
+    return None
 
 
 def build():
@@ -141,7 +160,9 @@ def build():
     feats = gj.get("features", [])
     print(f"  {len(feats)} features")
 
-    paths, rings, dropped = [], 0, 0
+    rings, dropped, no_iso = 0, 0, 0
+    shapes = {}          # ISO -> list of rings, each a flat [x,y,x,y,...]
+    other = []           # rings with no ISO: drawn, but not guessable
     for f in feats:
         geom = f.get("geometry") or {}
         kind, coords = geom.get("type"), geom.get("coordinates")
@@ -151,20 +172,35 @@ def build():
             polys = coords
         else:
             continue
+        iso = iso_of(f.get("properties") or {})
+        if not iso:
+            no_iso += 1
         for poly in polys:
             for ring in poly:          # ring 0 is the outline, the rest holes
-                d = ring_to_path(ring)
-                if d:
-                    paths.append(d)
-                    rings += 1
-                else:
+                _d, parts = ring_to_path(ring)
+                if not parts:
                     dropped += 1
+                    continue
+                rings += 1
+                for part in parts:
+                    flat = []
+                    for x, y in part:
+                        flat.append(round(x, DECIMALS))
+                        flat.append(round(y, DECIMALS))
+                    if iso:
+                        shapes.setdefault(iso, []).append(flat)
+                    else:
+                        other.append(flat)
 
-    path = "".join(paths)
     print(f"  {rings} rings kept, {dropped} too small or degenerate, "
           f"{STATS['wrapped']} antimeridian splits")
+    print(f"  {len(shapes)} countries hit-testable, {no_iso} features with no ISO code")
+    # The rings are the only copy of the geometry. The game builds its drawing
+    # path from them, so what is drawn and what a tap is tested against cannot
+    # drift apart -- and the file is not carrying the same coastlines twice.
     return {
-        "path": path,
+        "shapes": shapes,
+        "other": other,
         "width": MAP_W,
         "height": MAP_H,
         "source": SOURCE,
@@ -184,7 +220,8 @@ def main():
     data = build()
     blob = json.dumps(data, separators=(",", ":"))
     kb = len(blob) / 1024
-    verts = data["path"].count(",")
+    verts = sum(len(r) for rs in data["shapes"].values() for r in rs) // 2
+    verts += sum(len(r) for r in data["other"]) // 2
     print(f"  {verts} vertices, {kb:.0f} KB of JSON")
     if kb > 1600:
         print("  WARNING: larger than intended -- raise TOLERANCE and rebuild.",

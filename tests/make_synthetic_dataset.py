@@ -11,7 +11,46 @@ N_MAT, N_IMM = 1273, 849
 CONTINENTS = ["EU", "AS", "AF", "NA", "SA", "OC"]
 # Countries are the guessing vocabulary and every guess is measured from the
 # country's centroid, so they need coordinates.
-COUNTRIES = {
+MAP_W, MAP_H = 440, 220          # must match heritle.html and build_land.py
+
+
+def countries_from_map():
+    """Real ISO codes and centroids, taken from the map geometry itself.
+
+    Guessing is done by tapping the map, so a synthetic country has to be a
+    country the map can actually resolve a tap to. Inventing ISO codes would
+    make every tap in a test land on nothing. Centroids come from the same
+    rings, so a country's centroid is inside the shape a tap would hit.
+
+    Every country the map knows, not a subset: taking the first sixty
+    alphabetically meant a tap on France resolved to FR and then found no such
+    country, which is a test artefact rather than a game behaviour.
+    """
+    land = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "data", "land.json")
+    if not os.path.exists(land):
+        return None
+    with open(land) as fh:
+        shapes = json.load(fh).get("shapes") or {}
+    out = {}
+    for i, iso in enumerate(sorted(shapes)):
+        rings = shapes[iso]
+        biggest = max(rings, key=len)
+        xs = biggest[0::2]
+        ys = biggest[1::2]
+        cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
+        out[f"Q{100+i}"] = {
+            "en": f"Country {iso}", "fr": f"Pays {iso}", "es": f"País {iso}",
+            "iso": iso, "cont": CONTINENTS[i % len(CONTINENTS)],
+            "lat": round(90 - (cy / MAP_H) * 180, 4),
+            "lng": round((cx / MAP_W) * 360 - 180, 4),
+        }
+    return out
+
+
+COUNTRIES = countries_from_map() or {
+    # No map geometry to hand: fall back to invented countries. Map tapping
+    # cannot be exercised against these, and the game will say so.
     f"Q{100+i}": {"en": f"Country {i}", "fr": f"Pays {i}", "es": f"País {i}",
                   "cont": CONTINENTS[i % len(CONTINENTS)],
                   "lat": round(random.uniform(-50, 65), 4),
