@@ -153,18 +153,18 @@ aliases = [
 ]
 
 country_info = [
-    row(country=uri("Q43"), cEn=lit("Türkiye", "en"), cFr=lit("Turquie", "fr"),
+    row(country=uri("Q43"), iso=lit("TR"), cEn=lit("Türkiye", "en"), cFr=lit("Turquie", "fr"),
         cEs=lit("Turquía", "es"), coord=lit("39.0,35.0"), contEn=lit("Asia", "en")),
-    row(country=uri("Q837"), cEn=lit("Nepal", "en"), cFr=lit("Népal", "fr"),
+    row(country=uri("Q837"), iso=lit("NP"), cEn=lit("Nepal", "en"), cFr=lit("Népal", "fr"),
         cEs=lit("Nepal", "es"), coord=lit("28.0,84.0"), contEn=lit("Asia", "en")),
-    row(country=uri("Q218"), cEn=lit("Romania", "en"), cFr=lit("Roumanie", "fr"),
+    row(country=uri("Q218"), iso=lit("RO"), cEn=lit("Romania", "en"), cFr=lit("Roumanie", "fr"),
         cEs=lit("Rumania", "es"), coord=lit("46.0,25.0"), contEn=lit("Europe", "en")),
-    row(country=uri("Q29"), cEn=lit("Spain", "en"), cFr=lit("Espagne", "fr"),
+    row(country=uri("Q29"), iso=lit("ES"), cEn=lit("Spain", "en"), cFr=lit("Espagne", "fr"),
         cEs=lit("España", "es"), coord=lit("40.0,-4.0"), contEn=lit("Europe", "en")),
-    row(country=uri("Q878"), cEn=lit("United Arab Emirates", "en"),
+    row(country=uri("Q878"), iso=lit("AE"), cEn=lit("United Arab Emirates", "en"),
         cFr=lit("Émirats arabes unis", "fr"), cEs=lit("Emiratos Árabes Unidos", "es"),
         coord=lit("24.0,54.0"), contEn=lit("Asia", "en")),
-    row(country=uri("Q668"), cEn=lit("India", "en"), cFr=lit("Inde", "fr"),
+    row(country=uri("Q668"), iso=lit("IN"), cEn=lit("India", "en"), cFr=lit("Inde", "fr"),
         cEs=lit("India", "es"), coord=lit("21.0,78.0"), contEn=lit("Asia", "en")),
 ]
 

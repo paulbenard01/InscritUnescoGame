@@ -339,8 +339,11 @@ def filter_to_official(items):
 # a coordinate for entries that have none of their own (intangible elements are
 # practices rather than places, so most lack P625), and a continent fallback.
 COUNTRY_INFO_QUERY = """
-SELECT ?country ?cEn ?cFr ?cEs ?coord ?contEn WHERE {
+SELECT ?country ?cEn ?cFr ?cEs ?coord ?contEn ?iso WHERE {
   VALUES ?country { %s }
+  # ISO 3166-1 alpha-2. The map's country polygons are keyed by it, so this is
+  # what lets a tap on the map resolve to one of these countries.
+  OPTIONAL { ?country wdt:P297 ?iso . }
   OPTIONAL { ?country rdfs:label ?cEn . FILTER(lang(?cEn)="en") }
   OPTIONAL { ?country rdfs:label ?cFr . FILTER(lang(?cFr)="fr") }
   OPTIONAL { ?country rdfs:label ?cEs . FILTER(lang(?cEs)="es") }
@@ -642,6 +645,8 @@ def resolve_countries(items):
                 rec["coord"] = parse_coord(val(row, "coord"))
             if val(row, "contEn") and "continent" not in rec:
                 rec["continent"] = val(row, "contEn")
+            if val(row, "iso") and "iso" not in rec:
+                rec["iso"] = val(row, "iso").upper()
     print(f"  resolved {len(info)}/{len(qids)} countries")
 
     filled_coord = filled_cont = 0
@@ -981,6 +986,8 @@ def main():
         cont = continent_code([r["continent"]]) if r.get("continent") else None
         if cont:
             rec["cont"] = cont
+        if r.get("iso"):
+            rec["iso"] = r["iso"]
         if r.get("coord"):
             rec["lat"], rec["lng"] = round(r["coord"][0], 4), round(r["coord"][1], 4)
         else:
