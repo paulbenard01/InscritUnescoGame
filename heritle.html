@@ -28,7 +28,33 @@
   button{touch-action:manipulation;}
   .page{width:100%;max-width:480px;}
   header{text-align:center;margin-bottom:16px;position:relative;}
-  .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--cream);}
+  /* The mark sits opposite the language control, and costs nothing in the
+     vertical budget above the photograph. */
+  .mark{position:absolute;top:-2px;left:0;width:44px;height:44px;padding:0;
+    background:none;border:none;cursor:pointer;line-height:0;
+    -webkit-tap-highlight-color:transparent;}
+  .mark img{width:42px;height:42px;display:block;}
+  .mark:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:50%;}
+  /* Spin on a tap. The class is removed when the animation ends, so it can be
+     set off again -- an animation that only plays once is a disappointment. */
+  @keyframes mark-spin{ to{ transform:rotate(360deg); } }
+  .mark.spin img{animation:mark-spin 0.9s cubic-bezier(0.34,0.09,0.2,1);}
+  @media (prefers-reduced-motion: reduce){ .mark.spin img{animation:none;} }
+
+  /* Links out. One row, quiet, at the very bottom: they are not the game. */
+  .links{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;
+    margin-top:26px;padding-top:14px;border-top:1px solid rgba(201,162,75,0.15);}
+  .links a{font-family:'JetBrains Mono',monospace;font-size:0.62rem;
+    letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);
+    text-decoration:none;padding:6px 2px;min-height:32px;display:inline-flex;
+    align-items:center;gap:5px;}
+  .links a:hover{color:var(--gold);}
+  .links:empty{display:none;}
+  /* Only this line has to keep clear of the mark and the language control.
+     Padding the whole header pushed the pitch onto two lines on a phone, which
+     is the vertical budget above the photograph going backwards. */
+  .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;
+    color:var(--cream);padding:0 52px;}
   .pitch{color:var(--cream);font-size:0.95rem;margin-top:2px;}
   .tagline{color:var(--ink-dim);font-size:0.8rem;margin-top:2px;}
   /* Demoted deliberately. Gold is the palette's "act on this" colour -- the
@@ -411,6 +437,13 @@
 <body>
 <div class="page">
   <header>
+    <!-- The mark is a button because it does something: it spins. The image
+         falls back to the generated mark if the uploaded one is missing, so a
+         wrong filename costs a different logo, never a broken-image icon. -->
+    <button class="mark" id="mark" aria-label="Heritle">
+      <img src="assets/Heritlelogogold.svg" alt=""
+           onerror="this.onerror=null;this.src='assets/logo-gold.svg'">
+    </button>
     <div class="wordmark">Heritle</div>
     <div class="pitch" id="pitch"></div>
     <div class="tagline" id="tagline"></div>
@@ -477,6 +510,8 @@
   <div class="view" id="viewCollection"></div>
   <div class="view" id="viewPassport"></div>
   <div class="view" id="viewArchive"></div>
+  <!-- Filled in from LINKS below: a row that only ever shows what exists. -->
+  <footer class="links" id="links"></footer>
 </div>
 
 <div class="modal-backdrop" id="fieldNotesBackdrop">
@@ -517,6 +552,17 @@
 </div>
 
 <script>
+/* ---------- Links out ----------
+   Paste a URL to turn a link on. Leave it as an empty string and the link is
+   not rendered at all -- the game never shows a link that goes nowhere.
+   Labels are translated below (T.links); these are only the addresses. */
+const LINKS = {
+  instagram: '',                                     // e.g. https://instagram.com/…
+  news:      'https://whc.unesco.org/en/news/',      // inscriptions, decisions, alerts
+  source:    'https://github.com/paulbenard01/Heritle',
+  contact:   ''                                      // e.g. mailto:you@example.com
+};
+
 /* ---------- Fallback dataset ----------
    The 12-entry hand-picked demo. Used verbatim when data/dataset.json can't be
    fetched — notably over file://, where fetch() is blocked by CORS, so the game
@@ -659,6 +705,7 @@ const UI = {
              streak30:['The Long Season','A month without missing a day'],
              decades:['Time Traveller','Entries inscribed across five decades'],
              bonus10:['Tradition Hunter','The bonus round solved ten times'] },
+       links:{ instagram:'Instagram', news:'Heritage news', source:'Source', contact:'Get in touch' },
        achEarned:'Earned', achLocked:'Still to find',
        achLockedNone:'Every distinction earned.',
        achEmpty:'Nothing stamped yet. Finish a day and the first one lands here.',
@@ -728,6 +775,7 @@ const UI = {
              streak30:['La longue saison','Un mois sans manquer un jour'],
              decades:['Voyageur du temps','Des entrées inscrites sur cinq décennies'],
              bonus10:['Chasseur de traditions','La manche bonus résolue dix fois'] },
+       links:{ instagram:'Instagram', news:'Actualité du patrimoine', source:'Code source', contact:'Nous écrire' },
        achEarned:'Obtenues', achLocked:'Encore à trouver',
        achLockedNone:'Toutes les distinctions ont été obtenues.',
        achEmpty:'Rien d’apposé pour l’instant. Terminez une journée et le premier tampon arrive ici.',
@@ -797,6 +845,7 @@ const UI = {
              streak30:['La larga temporada','Un mes sin faltar un día'],
              decades:['Viajero del tiempo','Entradas inscritas a lo largo de cinco décadas'],
              bonus10:['Cazador de tradiciones','La ronda bonus resuelta diez veces'] },
+       links:{ instagram:'Instagram', news:'Noticias del patrimonio', source:'Código fuente', contact:'Escríbenos' },
        achEarned:'Obtenidas', achLocked:'Aún por descubrir',
        achLockedNone:'Todas las distinciones conseguidas.',
        achEmpty:'Nada sellado todavía. Termina un día y el primero aparecerá aquí.',
@@ -1527,6 +1576,7 @@ function roundFinished(){ return state.roundStatus[state.round] !== null; }
 function render(){
   const T = t();
   document.getElementById('pitch').textContent = T.pitch;
+  renderLinks();
   document.getElementById('tagline').textContent = T.tagline;
   renderTapHint();
 
@@ -2161,6 +2211,16 @@ document.addEventListener('keydown', e=>{
   else if(e.key === 'ArrowRight') stepGallery(1);
   else if(e.key === 'Escape') document.getElementById('modalBackdrop').classList.remove('open');
 });
+/* A tap spins the mark. Nothing else: it is a logo, not navigation. */
+(function spinTheMark(){
+  const mark = document.getElementById('mark');
+  if(!mark) return;
+  const img = mark.querySelector('img');
+  mark.addEventListener('click', ()=> mark.classList.add('spin'));
+  // Cleared when the animation finishes, or a second tap would do nothing.
+  img.addEventListener('animationend', ()=> mark.classList.remove('spin'));
+})();
+
 document.getElementById('modalClose').addEventListener('click', ()=> document.getElementById('modalBackdrop').classList.remove('open'));
 document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.target.id==='modalBackdrop') e.currentTarget.classList.remove('open'); });
 
@@ -2360,6 +2420,18 @@ function collectionCard(r){
                                .filter(Boolean).join(' · ')}</div>
       <span class="card-more">${T.cardMore}</span>
     </div></div>`;
+}
+
+/* Only what has an address, in a fixed order, each marked as leaving the game. */
+function renderLinks(){
+  const T = t();
+  const box = document.getElementById('links');
+  if(!box) return;
+  box.innerHTML = ['instagram', 'news', 'source', 'contact']
+    .filter(k => LINKS[k])
+    .map(k => `<a href="${LINKS[k]}" target="_blank" rel="noopener noreferrer">`
+             + `${T.links[k]}<span aria-hidden="true">\u2197</span></a>`)
+    .join('');
 }
 
 function renderCollection(){

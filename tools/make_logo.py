@@ -53,27 +53,26 @@ def smax(a, b, k):
     return -smin(-a, -b, k)
 
 
-class Mark:
-    """disc minus figure, as one field."""
+class Figure:
+    """The little guy on his own -- head, torso, arms, legs -- smooth-unioned.
+
+    The disc is deliberately NOT part of this field. Tracing the subtraction
+    meant the outer edge came back as a smoothed polyline pretending to be a
+    circle, and it showed: the rim was subtly out of round. The rim is drawn as
+    true arcs now, and only the figure is traced.
+    """
 
     def __init__(self, spec):
         self.s = spec
 
-    def figure(self, x, y):
+    def __call__(self, x, y):
         s = self.s
         k = s["fillet"]
-        d = circle(x, y, s["head"][0], s["head"][1], s["head"][2])
+        d = circle(x, y, *s["head"])
         d = smin(d, capsule(x, y, *s["torso"]), k)
         for limb in s["arms"] + s["legs"]:
             d = smin(d, capsule(x, y, *limb), k)
         return d
-
-    def __call__(self, x, y):
-        s = self.s
-        disc = circle(x, y, s["disc"][0], s["disc"][1], s["disc"][2])
-        # Soften where the carve meets the rim, so the legs open the circle
-        # rather than chipping it.
-        return smax(disc, -self.figure(x, y), s["carve"])
 
 
 # ------------------------------------------------------------ marching squares --
@@ -216,17 +215,94 @@ def to_bezier(points, decimals=1):
     return "".join(d) + "Z"
 
 
-def build(spec, n=640, spacing=9.0):
-    """Trace, de-noise, then fit.
+def run_to_bezier(points, decimals=1):
+    """An OPEN stretch of curve: Catmull-Rom through the points, with the ends
+    clamped. Used for the part of the outline that follows the figure, between
+    the places where it crosses the rim."""
+    n = len(points)
+    f = lambda v: f"{round(v, decimals):g}"
+    at = lambda i: points[max(0, min(n - 1, i))]
+    d = []
+    for i in range(n - 1):
+        p0, p1, p2, p3 = at(i - 1), points[i], points[i + 1], at(i + 2)
+        c1 = (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
+        c2 = (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
+        d.append(f"C{f(c1[0])} {f(c1[1])},{f(c2[0])} {f(c2[1])},{f(p2[0])} {f(p2[1])}")
+    return "".join(d)
 
-    A finer grid for a cleaner trace; a dense resample so smoothing has
-    something even to work on; then a coarser resample for the fit, because
-    fewer well-spaced nodes give a calmer curve than many crowded ones.
+
+def crossings(points, cx, cy, r):
+    """Where the figure's outline crosses the rim, and exactly on it.
+
+    Returns [(index, point)] in contour order. The interpolated point is pushed
+    out to radius r to the last decimal, so an arc can start and end on it
+    without a kink.
     """
     out = []
-    for loop in contours(Mark(spec), n=n):
-        dense = resample(loop, 2.5)
-        out.append(to_bezier(resample(smooth(dense), spacing)))
+    n = len(points)
+    for i in range(n):
+        a, b = points[i], points[(i + 1) % n]
+        da = math.hypot(a[0] - cx, a[1] - cy) - r
+        db = math.hypot(b[0] - cx, b[1] - cy) - r
+        if (da <= 0 < db) or (db <= 0 < da):
+            t = da / (da - db)
+            px = a[0] + (b[0] - a[0]) * t
+            py = a[1] + (b[1] - a[1]) * t
+            m = math.hypot(px - cx, py - cy) or 1.0
+            out.append((i, (cx + (px - cx) * r / m, cy + (py - cy) * r / m)))
+    return out
+
+
+def arc_back(start, end, cx, cy, r, inside_figure, decimals=1):
+    """The rim, from end round to start, taking whichever of the two arcs does
+    not run through the figure. One exact A command -- a real circle, not a
+    polyline impersonating one."""
+    f = lambda v: f"{round(v, decimals):g}"
+    a0 = math.atan2(end[1] - cy, end[0] - cx)
+    a1 = math.atan2(start[1] - cy, start[0] - cx)
+    for sweep in (1, 0):
+        delta = (a1 - a0) % (2 * math.pi) if sweep else -((a0 - a1) % (2 * math.pi))
+        mid = a0 + delta / 2
+        if inside_figure(cx + r * math.cos(mid), cy + r * math.sin(mid)) > 0:
+            large = 1 if abs(delta) > math.pi else 0
+            return f"A{f(r)} {f(r)} 0 {large} {sweep} {f(start[0])} {f(start[1])}"
+    return f"L{f(start[0])} {f(start[1])}"      # should not happen
+
+
+def build(spec, n=640, spacing=9.0):
+    """Trace the figure, then close each region with a true arc of the rim.
+
+    The outline of the mark is two different things: where the figure bounds it
+    the edge is a traced curve, and where the rim bounds it the edge is a
+    circle. Tracing both gave a wobbly circle, so each is now produced the way
+    it should be and they are stitched at the crossings.
+    """
+    s = spec
+    cx, cy, r = s["disc"]
+    field = Figure(spec)
+    loops = contours(field, n=n)
+    if not loops:
+        return "", 0
+    # The figure is one connected blob, so one contour.
+    pts = resample(smooth(resample(max(loops, key=len), 2.5)), spacing)
+    xs = crossings(pts, cx, cy, r)
+    if len(xs) < 2:
+        raise SystemExit("the figure does not cross the rim -- nothing to open")
+
+    inside = lambda x, y: math.hypot(x - cx, y - cy) <= r
+    out = []
+    for k in range(len(xs)):
+        i0, p0 = xs[k]
+        i1, p1 = xs[(k + 1) % len(xs)]
+        # The stretch of contour between this crossing and the next.
+        idx = [(i0 + 1 + j) % len(pts) for j in range((i1 - i0) % len(pts))]
+        stretch = [p0] + [pts[j] for j in idx] + [p1]
+        mid = stretch[len(stretch) // 2]
+        if not inside(*mid):
+            continue                      # a foot, outside the disc: not an edge
+        f = lambda v: f"{round(v, 1):g}"
+        out.append(f"M{f(p0[0])} {f(p0[1])}" + run_to_bezier(stretch)
+                   + arc_back(p0, p1, cx, cy, r, field) + "Z")
     return "".join(out), len(out)
 
 
@@ -253,14 +329,14 @@ SHAPES = {
     # flared trunk -- a robe, not a person. The two constraints pull against
     # each other; this is where they balance.
     "logo": dict(
-        disc=DISC, fillet=7, carve=4,
+        disc=DISC, fillet=7,
         head=(130, 58, 25),
         torso=(128, 100, 128, 138, 28),
         arms=[(112, 112, 62, 84, 12), (144, 110, 194, 72, 12)],
         legs=[(107, 148, 100, 240, 11), (149, 148, 156, 240, 11)],
     ),
     "favicon": dict(
-        disc=DISC, fillet=8, carve=4,
+        disc=DISC, fillet=8,
         head=(130, 60, 28),
         torso=(128, 102, 128, 138, 30),
         arms=[(112, 114, 62, 86, 14), (144, 112, 194, 76, 14)],
