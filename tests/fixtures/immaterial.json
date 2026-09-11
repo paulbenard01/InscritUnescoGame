@@ -131,6 +131,34 @@
      "type": "literal",
      "value": "http://www.wikidata.org/entity/Q29"
     }
+   },
+   {
+    "item": {
+     "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999006"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "A Shared Tradition",
+     "xml:lang": "en"
+    },
+    "labelFr": {
+     "type": "literal",
+     "value": "Une tradition partagée",
+     "xml:lang": "fr"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "41"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "2016-11-30T00:00:00Z"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q43|~|http://www.wikidata.org/entity/Q29|~|http://www.wikidata.org/entity/Q668"
+    }
    }
   ]
  }

@@ -20,6 +20,11 @@ shutil.copy(os.path.join(REPO, "heritle.html"), ROOT)
 subprocess.run([sys.executable, os.path.join(REPO, "tests", "make_synthetic_dataset.py"),
                 os.path.join(ROOT, "data", "dataset.json")],
                check=True, stdout=subprocess.DEVNULL)
+# The map geometry is independent of the dataset and real either way; without
+# it the page silently falls back to its coarse built-in outline.
+_land = os.path.join(REPO, "data", "land.json")
+if os.path.exists(_land):
+    shutil.copy(_land, os.path.join(ROOT, "data", "land.json"))
 
 def check(cond, label, detail=""):
     print(("  PASS " if cond else "  FAIL ") + label + (f"  [{detail}]" if detail and not cond else ""))
@@ -61,15 +66,18 @@ def main():
                 pool = page.evaluate("POOL.length")
                 check(pool > 2000, "loaded full dataset from data/dataset.json", f"POOL={pool}")
                 plan = page.evaluate("targets.map(t=>({type:t.type,tier:t.tier}))")
-                # All three are material while the intangible designation is
-                # unresolved: Q1459900 turned out to be the tentative list.
-                # Flip this back when ROUND_PLAN regains an immaterial round.
-                check([p["type"] for p in plan] == ["material"] * 3,
-                      "three material rounds while intangible is disabled", str(plan))
-                check(sorted(p["tier"] for p in plan) == [1, 2, 3],
-                      "difficulty ramps across the three rounds", str(plan))
+                # The pool has to carry both kinds, or the bonus round quietly
+                # falls back to a fourth site and nobody notices.
+                check(page.evaluate("POOL.some(d=>d.type==='immaterial')"),
+                      "dataset carries intangible entries")
+                check([p["type"] for p in plan] == ["material"] * 3 + ["immaterial"],
+                      "three heritage rounds then an intangible bonus", str(plan))
+                check(sorted(p["tier"] for p in plan[:3]) == [1, 2, 3],
+                      "difficulty ramps across the three heritage rounds", str(plan))
+                check(plan[3]["tier"] == 1,
+                      "the one-guess bonus round draws a widely known element", str(plan))
                 ids = page.evaluate("targets.map(t=>t.id)")
-                check(len(set(ids)) == 3, "three distinct targets", str(ids))
+                check(len(set(ids)) == 4, "four distinct targets", str(ids))
 
                 check(page.locator(".wordmark").inner_text() == "Heritle", "wordmark intact")
                 check(page.locator("#modeBadge").inner_text() != "", "mode badge rendered")
@@ -90,10 +98,10 @@ def main():
                 # Language slider drives every visible string.
                 page.click(".lang-btn[data-lang='fr']"); page.wait_for_timeout(150)
                 fr = page.locator("#tagline").inner_text()
-                check("devinettes" in fr, "FR tagline", fr)
+                check("chaque jour" in fr, "FR tagline", fr)
                 page.click(".lang-btn[data-lang='es']"); page.wait_for_timeout(150)
                 es = page.locator("#tagline").inner_text()
-                check("adivinanzas" in es, "ES tagline", es)
+                check("cada día" in es, "ES tagline", es)
                 page.click(".lang-btn[data-lang='en']"); page.wait_for_timeout(150)
 
                 # Guesses are countries now, never site names.
@@ -131,23 +139,10 @@ def main():
                 country_score = page.evaluate("totalScore()")
                 check(country_score > 0, "score awarded for the country", str(country_score))
 
-                # The bonus round: one pin on the map, scored by proximity.
-                check(page.evaluate("state.bonusOpen") is True, "bonus round offered")
-                page.evaluate("""
-                  () => {
-                    const t = targets[state.round];
-                    const p = project(t.lat, t.lng);
-                    const r = document.getElementById('mapSvg').getBoundingClientRect();
-                    document.getElementById('mapSvg').dispatchEvent(new MouseEvent('click', {
-                      clientX: r.left + (p.x / MAP_W) * r.width,
-                      clientY: r.top  + (p.y / MAP_H) * r.height, bubbles: true }));
-                  }
-                """)
-                page.wait_for_timeout(300)
-                withBonus = page.evaluate("totalScore()")
-                check(withBonus > country_score, "an accurate pin adds bonus points",
-                      f"{country_score} -> {withBonus}")
-                check(page.evaluate("state.bonusOpen") is False, "bonus closes after the pin")
+                check(abs(page.evaluate("state.roundScore[0]")
+                          - page.evaluate("ROUND_PLAN[0].points")) < 0.01,
+                      "naming the country takes the round's full points",
+                      str(page.evaluate("state.roundScore[0]")))
 
                 page.click("#nextBtn"); page.wait_for_timeout(300)
                 # Round 2 is played through the UI rather than by calling
@@ -165,17 +160,24 @@ def main():
                 check(page.locator(".hist-row").count() >= 1, "round 2 records the guess")
 
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(200)
-                page.click("#skipBonusBtn"); page.wait_for_timeout(200)
                 page.click("#nextBtn"); page.wait_for_timeout(200)
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(200)
-                page.click("#skipBonusBtn"); page.wait_for_timeout(200)
+                page.click("#nextBtn"); page.wait_for_timeout(200)
+                # The bonus round: a single guess, then straight to the result.
+                check(page.evaluate("guessesAllowed(3)") == 1,
+                      "the bonus round allows one guess")
+                page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(250)
+                check(page.evaluate("state.roundStatus[3]") == "solved",
+                      "the bonus round resolves on its single guess")
                 page.click("#nextBtn"); page.wait_for_timeout(300)
                 check(not page.locator("#finalResult").is_hidden(), "final screen reached")
-                # Country is 80% of a round, the pin bonus the other 20%. Round 1
-                # took a wrong guess then an exact pin; rounds 2-3 were solved
-                # first try with the bonus skipped. Total must stay within 100.
+                # Round 1 took a wrong guess before the right one, which still
+                # scores full marks; rounds 2-4 were solved outright. Only the
+                # wrong guesses in round 2 cost anything, and they cost nothing
+                # because the round was then solved.
                 final = page.evaluate("totalScore()")
-                check(0 < final <= 100, "total score stays within 100", str(final))
+                mx = page.evaluate("MAX_SCORE")
+                check(0 < final <= mx, f"total score stays within {mx}", str(final))
 
                 # Info modal.
                 page.locator("#learnLinks .btn").first.click(); page.wait_for_timeout(200)
@@ -294,7 +296,7 @@ def main():
             page.wait_for_timeout(120)
             pool = page.evaluate("POOL.length")
             check(pool == 12, "falls back to the 12-entry demo set", f"POOL={pool}")
-            check(page.evaluate("targets.length") == 3, "still picks three targets")
+            check(page.evaluate("targets.length") == 4, "still picks four targets")
             check(page.locator(".clue").count() == 5, "game still renders")
             check(not errors, "no uncaught page errors", "; ".join(errors[:3]))
             ctx.close()

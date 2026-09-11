@@ -43,6 +43,10 @@
      "type": "literal",
      "value": "1985-01-01T00:00:00Z"
     },
+    "siteId": {
+     "type": "literal",
+     "value": "1133bis"
+    },
     "country": {
      "type": "literal",
      "value": "http://www.wikidata.org/entity/Q43"
@@ -58,10 +62,6 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (i)|~|World Heritage selection criterion (vii)"
-    },
-    "siteId": {
-     "type": "literal",
-     "value": "1133bis"
     }
    },
    {
@@ -91,6 +91,10 @@
      "type": "literal",
      "value": "1979-01-01T00:00:00Z"
     },
+    "siteId": {
+     "type": "literal",
+     "value": "41225"
+    },
     "country": {
      "type": "literal",
      "value": "http://www.wikidata.org/entity/Q837"
@@ -102,10 +106,6 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (vii)"
-    },
-    "siteId": {
-     "type": "literal",
-     "value": "41225"
     }
    },
    {
@@ -135,6 +135,10 @@
      "type": "literal",
      "value": "1999-01-01T00:00:00Z"
     },
+    "siteId": {
+     "type": "literal",
+     "value": "131013"
+    },
     "country": {
      "type": "literal",
      "value": "http://www.wikidata.org/entity/Q218"
@@ -146,10 +150,6 @@
     "criterionEn": {
      "type": "literal",
      "value": "World Heritage selection criterion (iii)"
-    },
-    "siteId": {
-     "type": "literal",
-     "value": "131013"
     }
    },
    {
@@ -170,13 +170,13 @@
      "type": "literal",
      "value": "2"
     },
-    "country": {
-     "type": "literal",
-     "value": "http://www.wikidata.org/entity/Q218"
-    },
     "siteId": {
      "type": "literal",
      "value": "999999"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q218"
     }
    },
    {
