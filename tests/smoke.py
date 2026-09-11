@@ -100,6 +100,33 @@ def play_day(page, base, day, width, label):
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
     check(page.evaluate("targets.length") == 4, f"{label}: four targets chosen")
+    # Information hierarchy: the accent colour has to keep meaning one thing.
+    # It marks what is live or actionable -- the current round, the guess
+    # button, your pin. When a language setting and a category caption also
+    # wore it, it meant nothing and the eye had nowhere to go first.
+    gold_boxes = page.evaluate("""
+      () => {
+        const top = document.querySelector('.photo-box').getBoundingClientRect().top;
+        const near = (c) => { const m = String(c).match(/\\d+/g); return m &&
+          Math.abs(+m[0]-201)<12 && Math.abs(+m[1]-162)<12 && Math.abs(+m[2]-75)<12; };
+        const out = [];
+        for(const el of document.querySelectorAll('header *, .nav *, .rounds-row *, .meta-row *')){
+          const b = el.getBoundingClientRect();
+          if(!b.height || b.top >= top) continue;
+          const cs = getComputedStyle(el);
+          const boxed = (near(cs.borderTopColor) && cs.borderTopWidth !== '0px')
+                     || near(cs.backgroundColor);
+          if(boxed) out.push(el.className || el.tagName);
+        }
+        return out;
+      }
+    """)
+    check(len(gold_boxes) <= 2,
+          f"{label}: the accent colour stays scarce above the puzzle",
+          f"{len(gold_boxes)}: {gold_boxes}")
+    # The language control is a preference, not a move: it must not be one.
+    check(not any('lang' in str(c) for c in gold_boxes),
+          f"{label}: the language control does not wear the accent colour")
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.
     check(page.evaluate("!!LAND_SHAPES"), f"{label}: country shapes loaded")
@@ -141,8 +168,12 @@ def play_day(page, base, day, width, label):
     page.evaluate(TAP_JS, pt)
     page.wait_for_timeout(700)
     pb, vh = page.locator("#pendingGuess").bounding_box(), page.viewport_size["height"]
-    check(bool(pb) and pb["y"] >= 0 and pb["y"] + pb["height"] <= vh - 8,
-          f"{label}: the confirm bar is on screen",
+    # Fully visible is the requirement. The scroll-margin cushion only applies
+    # when a scroll actually happens, and once the header stopped wasting 60px
+    # the bar fits without one -- the browser then leaves it where it is, a
+    # couple of pixels off the bottom, which is in view and tappable.
+    check(bool(pb) and pb["y"] >= 0 and pb["y"] + pb["height"] <= vh,
+          f"{label}: the confirm bar is fully on screen",
           f"bottom={pb and round(pb['y'] + pb['height'])} vh={vh}")
     page.evaluate("clearPending(); renderMapForRound();")
     page.wait_for_timeout(150)
@@ -219,6 +250,33 @@ def play_day(page, base, day, width, label):
         """, multi["names"])
         check(all(ok), f"{label}: every inscribing country counts as correct",
               str(list(zip(multi["names"], ok))))
+
+    # ---- a wrong guess reveals another photograph ----
+    # A single weak photo made a round unguessable rather than hard, so each
+    # miss uncovers another. Checked on an entry that actually has several.
+    photo_state = page.evaluate("""
+      () => {
+        // From the pool, not from today's four: whether a given day happens to
+        // draw a multi-photo entry is luck, and a test that depends on the
+        // draw fails on some days and passes on others.
+        const tg = POOL.find(t => (t.photos || []).length > 1);
+        if(!tg) return null;
+        const saved = targets[state.round];
+        targets[state.round] = tg;
+        const before = currentPhoto(tg).file;
+        const n = photosOf(tg).length;
+        state.guesses[state.round].push({id:'x', km:1, bearing:0, bucket:'far'});
+        const after = currentPhoto(tg).file;
+        state.guesses[state.round].pop();
+        targets[state.round] = saved;
+        return { before, after, n };
+      }
+    """)
+    check(photo_state is not None, f"{label}: some entries carry several photos")
+    if photo_state:
+        check(photo_state["before"] != photo_state["after"],
+              f"{label}: a wrong guess reveals a different photo",
+              f"{photo_state['before']} -> {photo_state['after']}")
 
     # ---- round 1: win outright ----
     page.evaluate("submitGuess(targetCountry())")

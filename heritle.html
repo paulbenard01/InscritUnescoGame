@@ -27,12 +27,20 @@
   }
   button{touch-action:manipulation;}
   .page{width:100%;max-width:480px;}
-  header{text-align:center;margin-bottom:16px;}
+  header{text-align:center;margin-bottom:16px;position:relative;}
   .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--cream);}
   .tagline{color:var(--ink-dim);font-size:0.85rem;margin-top:4px;}
-  .lang-slider{display:inline-flex;margin-top:14px;border:1px solid var(--gold-dim);border-radius:999px;overflow:hidden;}
-  .lang-btn{background:transparent;border:none;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:6px 13px;cursor:pointer;}
-  .lang-btn.active{background:var(--gold);color:var(--navy);font-weight:500;}
+  /* Demoted deliberately. Gold is the palette's "act on this" colour -- the
+     guess button, the live round, the confirm bar -- and spending it on a
+     setting most players touch once put a preference above the puzzle in the
+     visual order. It is now quiet type, and absolutely positioned so it costs
+     nothing in the vertical budget above the photograph. */
+  .lang-slider{position:absolute;top:0;right:0;display:inline-flex;}
+  .lang-btn{background:transparent;border:none;color:var(--ink-dim);
+    font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.03em;
+    padding:4px 6px;cursor:pointer;opacity:0.65;}
+  .lang-btn.active{color:var(--cream);opacity:1;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-color:var(--gold-dim);}
 
   .rounds-row{display:flex;justify-content:center;gap:8px;margin:16px 0 10px;}
   .round-pip{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -51,7 +59,10 @@
 
   .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
     font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink-dim);}
-  .mode-badge{border:1px solid var(--gold-dim);border-radius:4px;padding:3px 8px;color:var(--gold);}
+  /* A label saying which pool today's round came from. It answers a question
+     nobody asked mid-guess, so it reads as caption, not as a control. */
+  .mode-badge{border-radius:4px;padding:3px 0;color:var(--ink-dim);
+    letter-spacing:0.06em;}
   /* The badges are emptied rather than removed when a screen does not want
      them, and an empty bordered pill still draws a small box. */
   .mode-badge:empty{border:none;padding:0;}
@@ -72,6 +83,12 @@
   /* The board crops to 16:10, which hides most of the frame. Tapping opens the
      whole photo so the player can read the detail they're guessing from. */
   .photo-box.zoomable{cursor:zoom-in;}
+  .photo-count{position:absolute;top:6px;left:8px;font-family:'JetBrains Mono',monospace;
+    font-size:0.62rem;color:var(--ink-dim);background:rgba(19,29,52,0.72);
+    border-radius:4px;padding:2px 6px;}
+  /* Gold only on the guess that just revealed it, so a new photo announces
+     itself without the badge shouting for the rest of the round. */
+  .photo-count.fresh{color:var(--navy);background:var(--gold);}
   .zoom-hint{position:absolute;top:6px;right:8px;width:26px;height:26px;border-radius:50%;
     background:rgba(19,29,52,0.7);border:1px solid var(--gold-dim);display:none;
     align-items:center;justify-content:center;pointer-events:none;}
@@ -95,9 +112,11 @@
   #mapSvg{touch-action:none;}
   .map-zoom{position:absolute;top:20px;right:20px;display:flex;flex-direction:column;gap:5px;z-index:2;}
   .map-zoom button{width:34px;height:34px;border-radius:7px;background:rgba(19,29,52,0.82);
-    border:1px solid var(--gold-dim);color:var(--gold);font-size:1rem;line-height:1;cursor:pointer;
+    border:1px solid rgba(156,166,192,0.35);color:var(--ink-dim);font-size:1rem;line-height:1;cursor:pointer;
     font-family:'JetBrains Mono',monospace;padding:0;}
-  .map-zoom button:active{background:rgba(201,162,75,0.22);}
+  /* Utilities, not the move. On the map gold means your pin and the answer,
+     so the zoom controls sit back until touched. */
+  .map-zoom button:active{background:rgba(201,162,75,0.22);color:var(--gold);}
   @media (pointer: coarse){ .map-zoom button{width:40px;height:40px;} }
   #mapSvg{width:100%;height:auto;display:block;}
   /* scroll-margin keeps the panel clear of the bottom edge when a guess
@@ -173,7 +192,12 @@
   .nav button{background:transparent;border:1px solid transparent;color:var(--ink-dim);
     font-family:'JetBrains Mono',monospace;font-size:0.66rem;letter-spacing:0.04em;
     text-transform:uppercase;padding:8px 10px;border-radius:6px;cursor:pointer;min-height:38px;}
-  .nav button.active{color:var(--gold);border-color:var(--gold-dim);}
+  /* Marked by weight and an underline rather than a gold box. Where you are is
+     orientation, not an action, and a second gold-bordered box beside the live
+     round pip made the two compete for the same meaning. */
+  .nav button.active{color:var(--cream);border-color:transparent;
+    text-decoration:underline;text-underline-offset:5px;
+    text-decoration-color:var(--gold-dim);}
   .view{display:none;} .view.active{display:block;}
 
   .panel-head{text-align:center;margin-bottom:14px;}
@@ -255,12 +279,14 @@
      page on focus and never zoom back, so the guess box goes to 16px exactly;
      controls go to the 44px minimum. Desktop keeps its original sizing. */
   @media (pointer: coarse), (max-width: 560px){
-    .lang-btn{padding:12px 20px;min-height:44px;font-size:0.78rem;}
+    /* Still a 44px target, but the padding is invisible: the control reads
+       small while staying comfortably tappable. */
+    .lang-btn{padding:12px 8px;min-height:44px;font-size:0.72rem;}
     .btn{min-height:44px;padding:12px 20px;}
     .modal-close{min-height:44px;}
   }
   .btn:active{filter:brightness(0.88);}
-  .lang-btn:active{background:rgba(201,162,75,0.2);}
+  .lang-btn:active{color:var(--gold);}
 
   .modal-backdrop{position:fixed;inset:0;background:rgba(10,14,26,0.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:20;}
   .modal-backdrop.open{display:flex;}
@@ -302,6 +328,7 @@
         <span id="fallbackText"></span>
       </div>
       <span class="photo-credit" id="photoCredit"></span>
+      <span class="photo-count" id="photoCount"></span>
       <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
     </div>
 
@@ -503,7 +530,7 @@ const UI = {
        regionOf:(dir,cont)=>`${dir} ${cont}`,
        pointsFull:(p,max)=>`Full marks — <b>${p}</b> of ${max} points.`,
        pointsPartial:(p,max,c,km)=>`Your last guess, <b>${c}</b>, was ${km} km away — <b>${p}</b> of ${max} points.`,
-       seeResult:'See result', bonusBadge:'BONUS ROUND',
+       seeResult:'See result', photoOf:(i,n)=>`photo ${i} of ${n}`, bonusBadge:'BONUS ROUND',
        bonusIntro:'Bonus round — a living tradition, and one guess only.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
@@ -548,7 +575,7 @@ const UI = {
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Note maximale — <b>${p}</b> points sur ${max}.`,
        pointsPartial:(p,max,c,km)=>`Votre dernière proposition, <b>${c}</b>, était à ${km} km — <b>${p}</b> points sur ${max}.`,
-       seeResult:'Voir le résultat', bonusBadge:'MANCHE BONUS',
+       seeResult:'Voir le résultat', photoOf:(i,n)=>`photo ${i} sur ${n}`, bonusBadge:'MANCHE BONUS',
        bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
@@ -593,13 +620,32 @@ const UI = {
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Nota máxima — <b>${p}</b> de ${max} puntos.`,
        pointsPartial:(p,max,c,km)=>`Tu última propuesta, <b>${c}</b>, estaba a ${km} km — <b>${p}</b> de ${max} puntos.`,
-       seeResult:'Ver resultado', bonusBadge:'RONDA BONUS',
+       seeResult:'Ver resultado', photoOf:(i,n)=>`foto ${i} de ${n}`, bonusBadge:'RONDA BONUS',
        bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
 };
-let lang = 'en';
+/* The language a visitor gets, in order of what actually knows best: what they
+   last chose here, then what their browser says, then English.
+
+   This control used to sit in the header's strongest slot wearing the brightest
+   colour in the palette, and the reason was that it had to: nothing detected
+   the language and nothing remembered the choice, so a French speaker reset it
+   on every single visit. Prominence was compensating for a missing feature.
+   With detection and persistence it becomes a rare correction, and can be
+   quiet. */
+const LANG_KEY = 'heritle-lang';
+function initialLang(){
+  try{
+    const saved = localStorage.getItem(LANG_KEY);
+    if(saved && UI[saved]) return saved;
+  }catch(e){ /* private mode */ }
+  const nav = (navigator.languages || [navigator.language || 'en'])
+                .map(l => String(l).slice(0,2).toLowerCase());
+  return nav.find(l => UI[l]) || 'en';
+}
+let lang = initialLang();
 function t(){ return UI[lang]; }
 
 /* ---------- Dataset loading ----------
@@ -620,6 +666,7 @@ function normaliseEntry(e, countries){
   return {
     id: e.id, type: e.type, tier: e.tier, lat: e.lat, lng: e.lng,
     year: e.year, approx: e.approx, image: e.image,
+    photos: (e.photos && e.photos.length) ? e.photos : (e.image ? [e.image] : []),
     continentCode: e.continent,
     names: e.names,
     aliases: e.aliases || [],
@@ -834,7 +881,9 @@ const GEN_KEY = 'heritle-gen';
 try{
   if(localStorage.getItem(GEN_KEY) !== STORAGE_GEN){
     Object.keys(localStorage)
-      .filter(k => k.startsWith('heritle-') && k !== GEN_KEY)
+      // The language preference is a UI setting, not game state: a reset of
+      // the archives should not put a French player back into English.
+      .filter(k => k.startsWith('heritle-') && k !== GEN_KEY && k !== LANG_KEY)
       .forEach(k => localStorage.removeItem(k));
     localStorage.setItem(GEN_KEY, STORAGE_GEN);
   }
@@ -1203,16 +1252,48 @@ function render(){
   // A downloaded copy wins when the pipeline made one; otherwise the photo
   // comes straight from Commons' CDN at full width. Either way a miss falls
   // through to onerror and the placeholder.
-  img.src = (target.image && (target.image.path || target.image.url))
+  const shot = currentPhoto(target);
+  img.src = (shot && (shot.path || shot.url))
             || `images/${target.id}.jpg`;
   img.alt = roundFinished() ? target.names[lang] : '';
   // Re-render with the same src doesn't refire load; catch the already-decoded case.
   if(img.complete && img.naturalWidth) box.classList.add('zoomable');
-  const cr = target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
+  const cr = shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   document.getElementById('photoCredit').textContent = cr;
+  renderPhotoCount(target);
 
   renderClues(target); renderHistory(); renderMapForRound(); renderRoundResult();
   document.getElementById('finalResult').hidden = true;
+}
+
+/* ---------- Photographs ----------
+   One photo was a coin toss. Plenty of inscriptions have a single image on
+   Wikidata that says almost nothing about the place -- a plaque, a doorway, a
+   museum case -- and a round built on one of those is unguessable rather than
+   hard. Each wrong guess reveals another, so a weak opening photo costs a
+   guess instead of the round. */
+function photosOf(target){
+  return (target && target.photos && target.photos.length) ? target.photos
+       : (target && target.image ? [target.image] : []);
+}
+function photoIndexFor(target){
+  const n = photosOf(target).length;
+  if(!n) return 0;
+  // One more photo per guess made, and the last one stays once they run out.
+  return Math.min(currentGuesses().length, n - 1);
+}
+function currentPhoto(target){
+  const ps = photosOf(target);
+  return ps.length ? ps[photoIndexFor(target)] : null;
+}
+function renderPhotoCount(target){
+  const el = document.getElementById('photoCount');
+  if(!el) return;
+  const ps = photosOf(target);
+  if(ps.length < 2){ el.textContent = ''; return; }
+  const i = photoIndexFor(target);
+  el.textContent = t().photoOf(i + 1, ps.length);
+  el.classList.toggle('fresh', i > 0 && i === currentGuesses().length);
 }
 
 function renderClues(target){
@@ -1560,8 +1641,9 @@ function openLightbox(){
   if(!target || !document.getElementById('photoBox').classList.contains('zoomable')) return;
   document.getElementById('lightboxImg').src = img.src;
   document.getElementById('lightboxImg').alt = roundFinished() ? target.names[lang] : '';
+  const shot = currentPhoto(target);
   document.getElementById('lightboxCredit').textContent =
-    target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
+    shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   lightbox.classList.add('open');
 }
 function closeLightbox(){ lightbox.classList.remove('open'); }
@@ -1719,6 +1801,7 @@ document.querySelectorAll('.lang-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active'); lang = btn.dataset.lang;
+    try{ localStorage.setItem(LANG_KEY, lang); }catch(e){ /* private mode */ }
     render(); renderNav(); renderCountdown();
     if(currentView !== 'Game') showView(currentView);
   });

@@ -88,6 +88,13 @@ def make(i, kind):
     if i % 4:
         e["image"] = {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}.jpg",
                       "license": "CC BY-SA 4.0", "credit": f"Photographer {i}"}
+        # Most entries carry several photos, revealed one per wrong guess.
+        # Without some here the reveal path would never run in a test.
+        if i % 3:
+            e["photos"] = [e["image"]] + [
+                {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}-{k}.jpg",
+                 "license": "CC BY-SA 4.0", "credit": f"Photographer {i}-{k}"}
+                for k in (2, 3)]
     return e
 
 entries = [make(i, "material") for i in range(N_MAT)] + [make(i, "immaterial") for i in range(N_IMM)]

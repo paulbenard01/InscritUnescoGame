@@ -169,6 +169,7 @@ SELECT ?item
        (GROUP_CONCAT(DISTINCT ?indigenous_;   separator="%(sep)s") AS ?indigenous)
        (GROUP_CONCAT(DISTINCT ?continentEn_; separator="%(sep)s") AS ?continentEn)
        (GROUP_CONCAT(DISTINCT ?image_;       separator="%(sep)s") AS ?image)
+       (SAMPLE(?commonsCat_) AS ?commonsCat)
        (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
        (GROUP_CONCAT(DISTINCT ?siteId_;      separator="%(sep)s") AS ?siteId)
        (GROUP_CONCAT(DISTINCT ?officialUrl_; separator="%(sep)s") AS ?officialUrl)
@@ -185,7 +186,15 @@ WHERE {
   OPTIONAL { ?item schema:description ?descEn_ . FILTER(lang(?descEn_)="en") }
   OPTIONAL { ?item schema:description ?descFr_ . FILTER(lang(?descFr_)="fr") }
   OPTIONAL { ?item schema:description ?descEs_ . FILTER(lang(?descEs_)="es") }
+  # P18 is the main photo, but a site often has only one and it can be a poor
+  # one -- a signpost, a detail, a museum case. These are the other image
+  # properties Wikidata uses, and the Commons category is the deep well.
   OPTIONAL { ?item wdt:P18 ?image_ . }
+  OPTIONAL { ?item wdt:P3451 ?image_ . }    # nighttime view
+  OPTIONAL { ?item wdt:P5252 ?image_ . }    # winter view
+  OPTIONAL { ?item wdt:P8592 ?image_ . }    # aerial view
+  OPTIONAL { ?item wdt:P2716 ?image_ . }    # collage
+  OPTIONAL { ?item wdt:P373 ?commonsCat_ . }
   OPTIONAL { ?item wikibase:sitelinks ?sitelinks_ . }
   OPTIONAL { ?item wdt:P17 ?country_ . }
   # Half the intangible elements carry no P17 at all: a tradition is not
@@ -595,6 +604,7 @@ def fetch_designation(pool, limit=None):
                 "site_ids": multi(row, "siteId"),
                 "official_urls": multi(row, "officialUrl"),
                 "images": multi(row, "image"),
+                "commons_cat": val(row, "commonsCat"),
                 "aliases": {"en": [], "fr": [], "es": []},
             }
             it["country_qid"] = it["country_qids"][0] if it["country_qids"] else None
@@ -729,6 +739,175 @@ def recompress(data):
         return out if len(out) < len(data) else data
     except Exception:
         return data
+
+
+def commons_imageinfo_many(filenames):
+    """imageinfo for up to 50 files in one request.
+
+    One request per file meant roughly 1,800 round trips at the polite delay --
+    about a quarter of an hour of the crawl spent on handshakes. Batching pays
+    for fetching several photos per entry instead of one.
+    """
+    out = {}
+    if not filenames:
+        return out
+    if FIXTURES:
+        for f in filenames:
+            info = FIXTURES.imageinfo(f)
+            if info:
+                out[f] = info
+        return out
+    for i in range(0, len(filenames), 50):
+        batch = filenames[i:i + 50]
+        titles = "|".join(f"File:{f}" for f in batch)
+        for attempt in range(3):
+            try:
+                r = requests.get(COMMONS_API, params={
+                    "action": "query", "titles": titles, "prop": "imageinfo",
+                    "iiprop": "url|extmetadata", "iiurlwidth": IMAGE_WIDTH,
+                    "format": "json",
+                }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+                if r.status_code == 429:
+                    time.sleep(int(r.headers.get("Retry-After") or 5))
+                    continue
+                r.raise_for_status()
+                pages = r.json().get("query", {}).get("pages", {})
+                for page in pages.values():
+                    info = (page.get("imageinfo") or [None])[0]
+                    if not info:
+                        continue
+                    meta = info.get("extmetadata", {})
+                    strip = lambda x: re.sub(r"<[^<]+?>", "", x or "").strip()
+                    name = page.get("title", "").split(":", 1)[-1]
+                    out[name] = {
+                        "thumb_url": info.get("thumburl") or info.get("url"),
+                        "license": meta.get("LicenseShortName", {}).get("value", "unknown"),
+                        "artist": strip(meta.get("Artist", {}).get("value", "")),
+                        "credit": strip(meta.get("Credit", {}).get("value", "")),
+                        "descriptionurl": info.get("descriptionurl", ""),
+                    }
+                break
+            except (requests.RequestException, ValueError, KeyError):
+                time.sleep(2 ** (attempt + 1))
+        time.sleep(COMMONS_DELAY)
+    return out
+
+
+def commons_category_files(category, limit=6):
+    """Photo filenames from a Commons category.
+
+    Wikidata often knows one image for a site and it is not always a useful
+    one -- a plaque, a detail, a museum case. The category is where the
+    photographs actually are.
+    """
+    if FIXTURES or not category:
+        return []
+    try:
+        r = requests.get(COMMONS_API, params={
+            "action": "query", "list": "categorymembers",
+            "cmtitle": f"Category:{category}", "cmtype": "file",
+            "cmlimit": limit, "format": "json",
+        }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        r.raise_for_status()
+        members = r.json().get("query", {}).get("categorymembers", [])
+        return [m["title"].split(":", 1)[-1] for m in members]
+    except (requests.RequestException, ValueError, KeyError):
+        return []
+    finally:
+        time.sleep(COMMONS_DELAY)
+
+
+PHOTOS_PER_ENTRY = 4
+
+# Commons categories hold more than photographs: pronunciation recordings,
+# videos, scanned PDFs, and -- worst for this game -- SVG locator maps, which
+# would show the player exactly which country the answer is in. Only raster
+# photographs get through.
+PHOTO_EXT = (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".gif")
+
+
+def is_photo(filename):
+    return filename.lower().endswith(PHOTO_EXT)
+
+
+def resolve_photos(dataset, all_items, download=False):
+    """Attach up to PHOTOS_PER_ENTRY usable Commons photos to every entry.
+
+    One photo was a coin toss: plenty of inscriptions have a single P18 that
+    says almost nothing about the place -- a plaque, a doorway, a museum case.
+    The game reveals another with each wrong guess, so a weak first photo is a
+    slow start rather than a dead round.
+
+    Filenames from every image property are gathered first and looked up in
+    batches, because the licence and attribution have to ride along with each
+    file and doing that one request at a time dominated the crawl.
+    """
+    wanted = {}
+    for entry in dataset:
+        it = all_items[entry["qid"]]
+        names = []
+        for uri in it.get("images", []):
+            name = unquote(uri.split("/")[-1]).replace("_", " ")
+            if is_photo(name):
+                names.append(name)
+        entry["_photo_names"] = names[:PHOTOS_PER_ENTRY * 2]
+        for n in entry["_photo_names"]:
+            wanted[n] = None
+
+    # Anything still thin goes to the Commons category, which is where the
+    # photographs of a place actually live.
+    thin = [e for e in dataset if len(e["_photo_names"]) < PHOTOS_PER_ENTRY]
+    print(f"  {len(dataset) - len(thin)} entries already have "
+          f"{PHOTOS_PER_ENTRY}+ candidates; {len(thin)} need the category")
+    for i, entry in enumerate(thin, 1):
+        cat = all_items[entry["qid"]].get("commons_cat")
+        if not cat:
+            continue
+        extra = commons_category_files(cat, limit=PHOTOS_PER_ENTRY * 2)
+        for n in extra:
+            if is_photo(n) and n not in entry["_photo_names"]:
+                entry["_photo_names"].append(n)
+                wanted[n] = None
+        if i % 100 == 0:
+            print(f"  category lookups {i}/{len(thin)}")
+
+    print(f"  looking up {len(wanted)} distinct files on Commons")
+    info_by_name = commons_imageinfo_many(sorted(wanted))
+
+    for entry in dataset:
+        photos = []
+        for name in entry.pop("_photo_names", []):
+            info = info_by_name.get(name)
+            if not info or not info.get("thumb_url"):
+                continue
+            photo = {
+                "url": info["thumb_url"],
+                "file": name,
+                "license": info["license"],
+                "credit": info["artist"] or info["credit"] or "Wikimedia Commons",
+                "source": info["descriptionurl"],
+            }
+            if is_noncommercial(info["license"]):
+                photo["nonCommercial"] = True
+            photos.append(photo)
+            if len(photos) >= PHOTOS_PER_ENTRY:
+                break
+        if photos:
+            # `image` stays the first photo so nothing downstream has to know
+            # about the list; `photos` is what the reveal-on-miss walks.
+            entry["image"] = photos[0]
+            if len(photos) > 1:
+                entry["photos"] = photos
+    stray = sum(1 for e in dataset
+                for ph in (e.get("photos") or ([e["image"]] if "image" in e else []))
+                if not is_photo(ph["file"]))
+    if stray:
+        print(f"  WARNING: {stray} non-photograph file(s) got through", file=sys.stderr)
+    got = sum(1 for e in dataset if "image" in e)
+    extra = sum(len(e.get("photos", [])) for e in dataset)
+    print(f"  {got}/{len(dataset)} entries have a photo; "
+          f"{sum(1 for e in dataset if e.get('photos'))} have more than one "
+          f"({extra} photos in all)")
 
 
 def download_image(entry, image_uris, out_dir="images", download=False):
@@ -982,13 +1161,7 @@ def main():
     if not args.skip_images:
         print("\nResolving photos..." if not args.download_images
               else "\nDownloading photos...")
-        for i, entry in enumerate(dataset, 1):
-            images = all_items[entry["qid"]]["images"]
-            if images:
-                download_image(entry, images, download=args.download_images)
-            if i % 50 == 0:
-                got = sum(1 for e in dataset[:i] if "image" in e)
-                print(f"  {i}/{len(dataset)} processed, {got} photos")
+        resolve_photos(dataset, all_items, download=args.download_images)
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 
