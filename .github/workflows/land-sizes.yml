@@ -56,6 +56,11 @@ jobs:
           print(f"  countries total: {len(s)}")
           PY
 
+      # Restated last, where it can be read without paging back through the run.
+      - name: Sizes, restated
+        if: always()
+        run: grep -E 'scale=|KB of JSON|countries hit-testable|MISSING|present' sizes.log || true
+
       - name: Report
         if: always()
         run: |
