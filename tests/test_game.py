@@ -54,12 +54,18 @@ def main():
                 errors = []
                 page.on("pageerror", lambda e: errors.append(str(e)))
                 page.goto(base); page.wait_for_timeout(700)
+                # Field Notes covers the board on a first visit; each context is fresh.
+                page.evaluate("document.getElementById('fnClose')?.click()")
+                page.wait_for_timeout(120)
 
                 pool = page.evaluate("POOL.length")
                 check(pool > 2000, "loaded full dataset from data/dataset.json", f"POOL={pool}")
                 plan = page.evaluate("targets.map(t=>({type:t.type,tier:t.tier}))")
-                check([p["type"] for p in plan] == ["material", "immaterial", "material"],
-                      "two material rounds and one intangible", str(plan))
+                # All three are material while the intangible designation is
+                # unresolved: Q1459900 turned out to be the tentative list.
+                # Flip this back when ROUND_PLAN regains an immaterial round.
+                check([p["type"] for p in plan] == ["material"] * 3,
+                      "three material rounds while intangible is disabled", str(plan))
                 check(sorted(p["tier"] for p in plan) == [1, 2, 3],
                       "difficulty ramps across the three rounds", str(plan))
                 ids = page.evaluate("targets.map(t=>t.id)")
@@ -204,6 +210,9 @@ def main():
                                           has_touch=True, is_mobile=True)
                 page = ctx.new_page()
                 page.goto(base); page.wait_for_timeout(600)
+                # Field Notes covers the board on a first visit; each context is fresh.
+                page.evaluate("document.getElementById('fnClose')?.click()")
+                page.wait_for_timeout(120)
                 m = page.evaluate(metrics_js)
                 check(m["over"] <= 0, f"{label}: no horizontal overflow", f"{m['over']}px")
                 # Under 16px, iOS Safari zooms the page in on focus and stays there.
@@ -229,6 +238,9 @@ def main():
                                           has_touch=True, is_mobile=True)
                 page = ctx.new_page()
                 page.goto(base); page.wait_for_timeout(600)
+                # Field Notes covers the board on a first visit; each context is fresh.
+                page.evaluate("document.getElementById('fnClose')?.click()")
+                page.wait_for_timeout(120)
                 page.tap("#guessInput")
                 page.fill("#guessInput", page.evaluate("COUNTRIES[0].names.en")[:6])
                 page.wait_for_timeout(900)
@@ -247,6 +259,9 @@ def main():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(base); page.wait_for_timeout(800)
+            # Field Notes covers the board on a first visit; each context is fresh.
+            page.evaluate("document.getElementById('fnClose')?.click()")
+            page.wait_for_timeout(120)
             # Not every entry has a photo, and the day's pick is deterministic —
             # steer round 1 onto one that does so the check isn't luck-dependent.
             page.evaluate("targets[0] = POOL.find(d => d.image); render();")
@@ -274,6 +289,9 @@ def main():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto("file://" + os.path.join(ROOT, "heritle.html")); page.wait_for_timeout(700)
+            # Field Notes covers the board on a first visit; each context is fresh.
+            page.evaluate("document.getElementById('fnClose')?.click()")
+            page.wait_for_timeout(120)
             pool = page.evaluate("POOL.length")
             check(pool == 12, "falls back to the 12-entry demo set", f"POOL={pool}")
             check(page.evaluate("targets.length") == 3, "still picks three targets")
