@@ -106,6 +106,20 @@ def main():
         print("  NOTHING CAME BACK -- the fault is inside wikipedia_images(), "
               "not in the API request it makes.")
 
+    # Same titles, same parameters, same headers as the pipeline -- printed
+    # raw. Inference has run out: the function reports no exception and no API
+    # error yet collects nothing, so the answer has to be in the response.
+    print("\n== the pipeline's own request, verbatim ==")
+    r = requests.get("https://en.wikipedia.org/w/api.php", params={
+        "action": "query", "prop": "pageimages",
+        "piprop": "original", "pilicense": "any",
+        "pilimit": 50,
+        "titles": "|".join(TITLES), "format": "json",
+    }, headers=bd.HEADERS, timeout=30)
+    print(f"  User-Agent: {bd.HEADERS['User-Agent']}")
+    print(f"  HTTP {r.status_code}  {r.url[:150]}")
+    print("  body: " + r.text[:700].replace("\n", " "))
+
     print("\nVerdict above: whichever of these returns nothing is the bug.")
     return 0
 
