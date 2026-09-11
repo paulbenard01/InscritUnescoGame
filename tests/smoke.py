@@ -127,6 +127,33 @@ def play_day(page, base, day, width, label):
           f"{label}: the verdict is on screen without scrolling",
           f"bottom={rbox and round(rbox['y'] + rbox['height'])} vh={vh}")
 
+    # ---- an element inscribed by several states accepts any of them ----
+    # Marking eleven of Nowruz's twelve countries wrong would be a bug, not a
+    # hard round, and the pipeline used to keep only the first of them.
+    multi = page.evaluate("""
+      () => {
+        const e = POOL.find(d => d.countryIds && d.countryIds.length > 1);
+        if(!e) return null;
+        return { n: e.countryIds.length, names: e.countryNames.map(c => c.en) };
+      }
+    """)
+    check(multi is not None, f"{label}: the pool has multinational entries")
+    if multi:
+        ok = page.evaluate("""
+          names => {
+            const e = POOL.find(d => d.countryIds && d.countryIds.length > 1);
+            const saved = targets[0];
+            targets[0] = e;
+            const before = state.round; state.round = 0;
+            const accepted = names.map(n =>
+              targetCountries().some(c => c.names.en === n));
+            targets[0] = saved; state.round = before;
+            return accepted;
+          }
+        """, multi["names"])
+        check(all(ok), f"{label}: every inscribing country counts as correct",
+              str(list(zip(multi["names"], ok))))
+
     # ---- round 1: win outright ----
     page.evaluate("submitGuess(targetCountry())")
     page.wait_for_timeout(250)

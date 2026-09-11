@@ -40,6 +40,12 @@ def make(i, kind):
         e["year"] = random.randint(1978, 2024)
     if kind == "immaterial" and i % 2:
         e["approx"] = True
+    # Roughly a third of intangible elements are inscribed by several states
+    # at once. The game has to accept any of them, so the synthetic set has to
+    # contain some or that path is never exercised.
+    if kind == "immaterial" and i % 3 == 0:
+        others = [c for c in COUNTRIES if c != e["country"]]
+        e["countries"] = [e["country"]] + random.sample(others, 2)
     if i % 4:
         e["image"] = {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}.jpg",
                       "license": "CC BY-SA 4.0", "credit": f"Photographer {i}"}

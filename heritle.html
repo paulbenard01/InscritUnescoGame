@@ -605,12 +605,19 @@ function t(){ return UI[lang]; }
 function normaliseEntry(e, countries){
   const country = countries[e.country] || null;
   const per = (pick) => ({ en:pick('en'), fr:pick('fr'), es:pick('es') });
+  // An element inscribed by several states has several right answers. The
+  // pipeline only emits `countries` when there is more than one, so fall back
+  // to the single primary.
+  const allIds = (e.countries && e.countries.length ? e.countries : [e.country])
+                   .filter(id => countries[id]);
   return {
     id: e.id, type: e.type, tier: e.tier, lat: e.lat, lng: e.lng,
     year: e.year, approx: e.approx, image: e.image,
     continentCode: e.continent,
     names: e.names,
     aliases: e.aliases || [],
+    countryIds: allIds,
+    countryNames: allIds.map(id => countries[id]),
     country:   per(l => country ? country[l] : (UI[l].unknown)),
     continent: per(l => (UI[l].continents[e.continent]) || UI[l].unknown),
     category:  per(l => (UI[l].categories[e.category]) || UI[l].unknown),
@@ -1100,6 +1107,30 @@ function targetCountry(){
   // has no QIDs, and the name is what both agree on.
   return COUNTRIES.find(c => c.names.en === tg.country.en) || null;
 }
+
+/* Every country that counts as right. Usually one; for a tradition inscribed
+   by a dozen states, a dozen -- marking eleven of them wrong would be a bug,
+   not a hard round. */
+function targetCountries(){
+  const tg = currentTarget();
+  if(!tg) return [];
+  const names = (tg.countryNames && tg.countryNames.length)
+              ? tg.countryNames.map(n => n.en)
+              : [tg.country.en];
+  const found = COUNTRIES.filter(c => names.includes(c.names.en));
+  return found.length ? found : [targetCountry()].filter(Boolean);
+}
+
+/* Where the answer is, for distance. A single-country entry is measured to the
+   site itself. A multinational one has no single place -- its stored
+   coordinate is just the first country's centroid -- so it is measured to
+   whichever of its countries the guess is closest to. */
+function answerDistanceKm(country){
+  const tg = currentTarget();
+  const answers = targetCountries();
+  if(answers.length <= 1) return haversineKm(country.lat, country.lng, tg.lat, tg.lng);
+  return Math.min(...answers.map(a => haversineKm(country.lat, country.lng, a.lat, a.lng)));
+}
 function currentGuesses(){ return state.guesses[state.round]; }
 function roundFinished(){ return state.roundStatus[state.round] !== null; }
 
@@ -1265,7 +1296,10 @@ function renderRoundResult(){
   const max = Math.round(roundPlan(state.round).points);
   // The site name is the reward, not the puzzle: it is revealed either way,
   // alongside the country that was the actual answer.
-  const reveal = `<p>${T.answerWas} <b>${target.country[lang]}</b><br>
+  const answerNames = (target.countryNames && target.countryNames.length > 1)
+    ? target.countryNames.map(n => n[lang] || n.en).join(' \u00b7 ')
+    : target.country[lang];
+  const reveal = `<p>${T.answerWas} <b>${answerNames}</b><br>
                   <span style="color:var(--cream)">${target.names[lang]}</span></p>`;
   // A missed round still scores by proximity, so the points line is the real
   // outcome -- "Round over" alone used to read as zero.
@@ -1452,20 +1486,29 @@ function submitGuess(country){
   if(state.round >= N_ROUNDS || roundFinished()) return;
   const guesses = currentGuesses();
   if(guesses.some(g=>g.id===country.id)) return;
-  const target = currentTarget(), answer = targetCountry();
+  const target = currentTarget(), answers = targetCountries();
   // Distance runs from the guessed country to the *site*, so the heat keeps
-  // pointing at the real place even once you are in the right country.
-  const km = Math.round(haversineKm(country.lat, country.lng, target.lat, target.lng));
+  // pointing at the real place even once you are in the right country. For a
+  // multinational element it runs to the nearest of its countries instead.
+  const km = Math.round(answerDistanceKm(country));
   const brg = bearing(country.lat, country.lng, target.lat, target.lng);
-  const isCorrect = answer ? country.id === answer.id
-                           : country.names.en === target.country.en;
+  const isCorrect = answers.length
+    ? answers.some(a => a.id === country.id)
+    : country.names.en === target.country.en;
   guesses.push({ id: country.id, km, bearing: brg,
                  bucket: isCorrect ? 'correct' : heatBucket(km),
                  // Distance alone is hard to act on. Saying which of continent
                  // and region a guess already matched turns each try into a
                  // narrowing step rather than a number to interpret.
-                 contOk: !!(contCodeOf(country) && contCodeOf(country) === contCodeOf(target)),
-                 regionOk: regionOf(country) === regionOf(target) });
+                 // Judged against any of the answer countries, for the same
+                 // reason the answer itself is: a tradition shared across two
+                 // continents is not "the wrong continent".
+                 contOk: !!(contCodeOf(country) && (answers.length > 1
+                        ? answers.some(a => contCodeOf(a) === contCodeOf(country))
+                        : contCodeOf(country) === contCodeOf(target))),
+                 regionOk: answers.length > 1
+                        ? answers.some(a => regionOf(a) === regionOf(country))
+                        : regionOf(country) === regionOf(target) });
 
   const max = roundPlan(state.round).points;
   if(isCorrect){
