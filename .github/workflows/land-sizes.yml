@@ -1,0 +1,70 @@
+name: Measure map resolutions
+
+# Sizing exercise, not a build. Answers one question before committing to a
+# route: how big does the self-hosted geometry get if the map has to hold up
+# at deeper zoom, and does the finer source actually contain the microstates
+# that are missing today?
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/land-sizes.yml'
+      # The generator too: a fix to it is exactly when this needs re-running,
+      # and without it the last fix pushed and nothing fired.
+      - 'tools/build_land.py'
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+
+      - name: Sizes
+        run: |
+          set -euo pipefail
+          for combo in "50m 12 0.12" "50m 40 0.02" "10m 40 0.02" "10m 80 0.008"; do
+            set -- $combo
+            echo "=============================================================="
+            python tools/build_land.py --check --scale "$1" --max-zoom "$2" --min-extent "$3" \
+              2>&1 | grep -vE '^fetching' || true
+          done 2>&1 | tee sizes.log
+
+      - name: Does the finer source carry the microstates?
+        run: |
+          set -euo pipefail
+          python tools/build_land.py --scale 10m --max-zoom 40 --min-extent 0.008 \
+            --out /tmp/land10.json >/dev/null
+          python - <<'PY' | tee -a sizes.log
+          import json
+          d = json.load(open('/tmp/land10.json'))
+          s = d['shapes']
+          for iso, name in [("VA","Vatican City"),("MC","Monaco"),("SM","San Marino"),
+                            ("LI","Liechtenstein"),("SG","Singapore"),("MT","Malta"),
+                            ("AD","Andorra"),("TV","Tuvalu"),("NR","Nauru")]:
+              rings = s.get(iso)
+              print(f"  {name:14} {'present' if rings else 'MISSING':8}"
+                    f" {sum(len(r)//2 for r in rings) if rings else 0} vertices")
+          print(f"  countries total: {len(s)}")
+          PY
+
+      # Restated last, where it can be read without paging back through the run.
+      - name: Sizes, restated
+        if: always()
+        run: grep -E 'scale=|KB of JSON|countries hit-testable|MISSING|present' sizes.log || true
+
+      - name: Report
+        if: always()
+        run: |
+          echo '### Map resolution sizing' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat sizes.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
