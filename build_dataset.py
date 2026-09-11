@@ -78,15 +78,33 @@ COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 # If a run returns far fewer than `expected`, the designation item is probably
 # wrong -- check what P1435 actually points at on a known entry.
 # Q1459900 is disabled. It was briefed as Intangible Cultural Heritage, but the
-# 1,745 items it returns are places, not traditions -- Roman ruins, national
-# parks, a geological stratotype, many titled in the submitting country's
-# language. That is the World Heritage tentative list, and the game was
-# presenting its candidates as inscribed heritage. Until the correct
-# designation is identified, the pool is material only; re-enable the line
-# below once it is, and nothing else has to change.
+# items it returns are places, not traditions -- Roman ruins, national parks, a
+# geological stratotype, many titled in the submitting country's language. That
+# is the World Heritage tentative list, and the game was presenting its
+# candidates as inscribed heritage.
+#
+# tools/find_ich.py has since established why no replacement P1435 value was
+# ever going to work: intangible elements are not marked by a heritage
+# designation at all. They carry a *status*, P3259, whose values are the
+# individual lists (counts from the run of 2026-09-11):
+#
+#   P3259 = Q110319947  Representative List                       823 items
+#   P3259 = Q17323370   In Need of Urgent Safeguarding             94 items
+#   P3259 = Q877988     Masterpieces of the Oral and Intangible    89 items
+#
+# Two cautions before wiring it up. Q110319947 also exists as a P1435 value,
+# where it holds 3 items -- selecting the wrong property would silently yield
+# almost nothing. And the Masterpieces programme predates the Representative
+# List and was folded into it, so adding the three counts double-counts; the
+# first two alone come to 917 against about 849 official, which still wants a
+# gate on official identifiers the way P757 gates the material pool.
+#
+# So this is not a one-line change any more: it needs a second selector keyed
+# on P3259 rather than another entry in this list. Left undone deliberately --
+# the brief for the current build is material only.
 DESIGNATIONS = [
     ("Q9259", "material", 1273),
-    # ("Q1459900", "immaterial", 849),
+    # ("Q1459900", "immaterial", 849),   # wrong list; see the note above
 ]
 
 PAGE_SIZE = 250
