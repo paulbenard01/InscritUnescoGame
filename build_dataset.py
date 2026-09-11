@@ -163,6 +163,10 @@ SELECT ?item
        (SAMPLE(?sitelinks_) AS ?sitelinks)
        (SAMPLE(?inscribed_) AS ?inscribed)
        (GROUP_CONCAT(DISTINCT ?country_;     separator="%(sep)s") AS ?country)
+       (GROUP_CONCAT(DISTINCT ?inscribedBy_;  separator="%(sep)s") AS ?inscribedBy)
+       (GROUP_CONCAT(DISTINCT ?origin_;       separator="%(sep)s") AS ?origin)
+       (GROUP_CONCAT(DISTINCT ?jurisdiction_; separator="%(sep)s") AS ?jurisdiction)
+       (GROUP_CONCAT(DISTINCT ?indigenous_;   separator="%(sep)s") AS ?indigenous)
        (GROUP_CONCAT(DISTINCT ?continentEn_; separator="%(sep)s") AS ?continentEn)
        (GROUP_CONCAT(DISTINCT ?image_;       separator="%(sep)s") AS ?image)
        (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
@@ -184,6 +188,14 @@ WHERE {
   OPTIONAL { ?item wdt:P18 ?image_ . }
   OPTIONAL { ?item wikibase:sitelinks ?sitelinks_ . }
   OPTIONAL { ?item wdt:P17 ?country_ . }
+  # Half the intangible elements carry no P17 at all: a tradition is not
+  # obviously a thing that "has a country", and Wikidata records the same fact
+  # under several other names. Dropping them cost 407 of 916 elements -- most
+  # of the register -- so the fallbacks are fetched and ranked in Python.
+  OPTIONAL { ?item p:P3259 [ pq:P17 ?inscribedBy_ ] . }
+  OPTIONAL { ?item wdt:P495 ?origin_ . }
+  OPTIONAL { ?item wdt:P1001 ?jurisdiction_ . }
+  OPTIONAL { ?item wdt:P2341 ?indigenous_ . }
   # P757 is the official World Heritage site number -- the exact join key to
   # the published list. Intangible elements have no equivalent property, so any
   # statement pointing at an official element page stands in for one.
@@ -361,12 +373,14 @@ class Fixtures:
             return self._load("country_info.json") or {"results": {"bindings": []}}
         if int(re.search(r"OFFSET (\d+)", query).group(1)) > 0:
             return {"results": {"bindings": []}}  # fixtures are a single page
-        # Keyed on the property each pool is selected by, not on a QID: the
-        # intangible selector has changed once already, and a QID-keyed lookup
-        # silently returns nothing when it does.
-        for marker, name in (("p:P3259", "immaterial"), ("p:P1435", "material")):
-            if marker in query:
-                return self._load(f"{name}.json") or {"results": {"bindings": []}}
+        # Matched on the pool's own spine, so the mapping cannot drift from the
+        # queries it is meant to identify. Keying on a bare property name was
+        # not enough: both pools now mention P3259 -- the intangible one selects
+        # on it, the material one reads a country qualifier off it -- so the
+        # material query was being answered with the intangible fixture.
+        for pool in POOLS:
+            if pool["spine"] in query:
+                return self._load(f"{pool['kind']}.json") or {"results": {"bindings": []}}
         return {"results": {"bindings": []}}
 
     def imageinfo(self, filename):
@@ -515,6 +529,29 @@ def fetch_aliases(qids):
     return out
 
 
+# Where an item's countries come from, best source first. These are ranked
+# rather than merged: P17 is "this is in/of that country", while country of
+# origin, jurisdiction and indigenous-to answer slightly different questions.
+# Merging them would let a tradition's historical origin join the set of
+# countries that actually inscribed it, which is not the same claim.
+COUNTRY_SOURCES = [
+    ("inscribed-by", "inscribedBy"),   # a country qualifier on the inscription
+    ("P17", "country"),
+    ("P495", "origin"),
+    ("P1001", "jurisdiction"),
+    ("P2341", "indigenous"),
+]
+
+
+def country_sources(row):
+    """(source name, qids) from the best-populated source this row has."""
+    for name, field in COUNTRY_SOURCES:
+        qids = [q for q in (qid_of(x) for x in multi(row, field)) if q]
+        if qids:
+            return name, qids
+    return None, []
+
+
 def fetch_designation(pool, limit=None):
     """Page through one pool. The query returns one row per item."""
     kind = pool["kind"]
@@ -548,7 +585,8 @@ def fetch_designation(pool, limit=None):
                 # list first made the answer arbitrary: Nowruz came out as
                 # "Kurdistan", Diwali as "Mauritius". The first is still the
                 # primary for display and for the coordinate fallback.
-                "country_qids": [q for q in (qid_of(x) for x in multi(row, "country")) if q],
+                "country_qids": country_sources(row)[1],
+                "country_source": country_sources(row)[0],
                 "continent_labels": multi(row, "continentEn"),
                 "criteria": multi(row, "criterionEn"),
                 "site_ids": multi(row, "siteId"),
@@ -874,6 +912,17 @@ def main():
                 dual.append((q, all_items[q]["type"], kind))
             else:
                 all_items[q] = it
+    # Which source placed each item. Worth printing: if a fallback ever starts
+    # carrying the bulk of the pool, that is a modelling change on Wikidata's
+    # side and the ranking above should be revisited.
+    by_source = {}
+    for it in all_items.values():
+        key = (it["type"], it.get("country_source") or "none")
+        by_source[key] = by_source.get(key, 0) + 1
+    print("\nCountry source:")
+    for (kind, src), n in sorted(by_source.items()):
+        print(f"  {kind:<11} {src:<13} {n:>5}")
+
     if dual:
         print(f"\n{len(dual)} item(s) carry both designations; kept the first:")
         for q, kept, skipped in dual[:10]:
