@@ -576,7 +576,7 @@ const FALLBACK_DATA = [
 
 /* ---------- i18n ---------- */
 const UI = {
-  en:{ pitch:'Guess the world heritage!', tagline:'three sites and a tradition each day', tapPrompt:'Tap the map to place your guess', tapAgain:'Tap again to move it',
+  en:{ pitch:'Guess and Discover the world heritage!', tagline:'three sites and a tradition each day', tapPrompt:'Tap the map to place your guess', tapAgain:'Tap again to move it',
        confirmGuess:'Guess', tapWater:'That is open water — tap a country',
        tapUnknown:'No entries from that country',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
@@ -626,11 +626,11 @@ const UI = {
        bonusIntro:'Bonus round — a living tradition. Three guesses, worth half the day.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
-       learnLabel:'Learn more', linkWiki:'Wikipedia', linkData:'Data page',
+       learnLabel:'Learn more',
        linkOfficial:'Official UNESCO Listing',
        linkVideo:(n)=>`Discover videos about ${n}`, close:'Close',
        galOf:(i,n)=>`Photograph ${i} of ${n}`, noPhoto:'No photograph available' },
-  fr:{ pitch:'Devinez le patrimoine mondial !', tagline:'trois sites et une tradition chaque jour', tapPrompt:'Touchez la carte pour placer votre proposition', tapAgain:'Touchez à nouveau pour la déplacer',
+  fr:{ pitch:'Devinez et découvrez le patrimoine mondial !', tagline:'trois sites et une tradition chaque jour', tapPrompt:'Touchez la carte pour placer votre proposition', tapAgain:'Touchez à nouveau pour la déplacer',
        confirmGuess:'Proposer', tapWater:'C’est en pleine eau — touchez un pays',
        tapUnknown:'Aucune entrée pour ce pays',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
@@ -680,11 +680,11 @@ const UI = {
        bonusIntro:'Manche bonus — une tradition vivante. Trois essais, la moitié de la journée en jeu.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
-       learnLabel:'En savoir plus', linkWiki:'Wikipédia', linkData:'Fiche de données',
+       learnLabel:'En savoir plus',
        linkOfficial:'Fiche officielle UNESCO',
        linkVideo:(n)=>`Découvrir des vidéos sur ${n}`, close:'Fermer',
        galOf:(i,n)=>`Photographie ${i} sur ${n}`, noPhoto:'Aucune photographie disponible' },
-  es:{ pitch:'¡Adivina el patrimonio mundial!', tagline:'tres sitios y una tradición cada día', tapPrompt:'Toca el mapa para colocar tu propuesta', tapAgain:'Toca otra vez para moverla',
+  es:{ pitch:'¡Adivina y descubre el patrimonio mundial!', tagline:'tres sitios y una tradición cada día', tapPrompt:'Toca el mapa para colocar tu propuesta', tapAgain:'Toca otra vez para moverla',
        confirmGuess:'Proponer', tapWater:'Eso es mar abierto — toca un país',
        tapUnknown:'Sin entradas de ese país',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
@@ -734,7 +734,7 @@ const UI = {
        bonusIntro:'Ronda bonus — una tradición viva. Tres intentos, la mitad de la jornada en juego.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
-       learnLabel:'Saber más', linkWiki:'Wikipedia', linkData:'Ficha de datos',
+       learnLabel:'Saber más',
        linkOfficial:'Ficha oficial de la UNESCO',
        linkVideo:(n)=>`Descubre vídeos sobre ${n}`, close:'Cerrar',
        galOf:(i,n)=>`Fotografía ${i} de ${n}`, noPhoto:'No hay fotografía disponible' }
@@ -1106,8 +1106,7 @@ function catalogue(entry, solved){
     // What the links are built from, so a catalogued entry stays readable even
     // if a later dataset no longer carries it. The description is not copied:
     // it is long, and it is read off the live entry when there is one.
-    qid: entry.qid, wiki: entry.wiki, siteId: entry.siteId,
-    officialUrl: entry.officialUrl
+    qid: entry.qid, siteId: entry.siteId, officialUrl: entry.officialUrl
   };
   saveProfile();
 }
@@ -1902,16 +1901,9 @@ function learnLinks(entry){
        <span class="ll-text">${label}</span>
        <span class="ll-go" aria-hidden="true">↗</span></a>`;
 
-  // The player's language first, then whatever article exists.
-  const w = entry.wiki || {};
-  const wlang = w[lang] ? lang : (w.en ? 'en' : (w.fr ? 'fr' : (w.es ? 'es' : null)));
-  if(wlang){
-    out.push(a(`https://${wlang}.wikipedia.org/wiki/${encodeURIComponent(w[wlang])}`,
-               'W', T.linkWiki));
-  } else if(entry.qid){
-    // No article, but the data page lists every source we have.
-    out.push(a(`https://www.wikidata.org/wiki/${entry.qid}`, 'W', T.linkData));
-  }
+  // No encyclopaedia link. The article titles come from Wikidata's sitelinks and
+  // a fair few no longer resolve -- renamed, merged or redirected since -- and a
+  // link that lands on nothing is worse than one that was never offered.
 
   if(entry.siteId){
     out.push(a(`https://whc.unesco.org/en/list/${encodeURIComponent(entry.siteId)}`,
