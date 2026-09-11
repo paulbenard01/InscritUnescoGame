@@ -489,26 +489,6 @@ def main():
               "the gallery has a photograph in it")
         check(page.locator("#galCredit").inner_text().strip() != "",
               "the photograph is credited where nothing is left to spoil")
-        # Staged on an entry that certainly has several, rather than on
-        # whichever one the day happened to catalogue.
-        page.evaluate("""
-          () => { const e = POOL.find(d => (d.photos || []).length > 1);
-                  if(e) openInfoModal(e, profile.collection[e.id]); }
-        """)
-        page.wait_for_timeout(200)
-        shots = page.evaluate("galleryShots.length")
-        check(shots > 1, "an entry with several photographs opens with them all",
-              str(shots))
-        if shots > 1:
-            first = page.evaluate("document.getElementById('galImg').src")
-            page.locator("#galNext").click(); page.wait_for_timeout(150)
-            check(page.evaluate("document.getElementById('galImg').src") != first,
-                  "the gallery pages to the next photograph")
-            check(page.locator("#galDots i.on").count() == 1,
-                  "exactly one dot marks where you are")
-            page.locator("#galPrev").click(); page.wait_for_timeout(150)
-            check(page.evaluate("document.getElementById('galImg').src") == first,
-                  "and back again")
         links = page.locator("#modalLinks .learn-link").count()
         check(links >= 1, "the card's entry offers somewhere to learn more",
               str(links))
@@ -538,6 +518,33 @@ def main():
               "favourites get a shelf of their own, first", str(heads))
         check(page.locator("#viewCollection .card .fav.on").count() == 1,
               "and the starred card shows as kept")
+        # Paging, staged on an entry that certainly has several photographs
+        # rather than on whichever one the day happened to catalogue. Last,
+        # because this entry need not be in the collection -- and on one that
+        # is not, the star is rightly hidden.
+        page.evaluate("""
+          () => { const e = POOL.find(d => (d.photos || []).length > 1);
+                  if(e) openInfoModal(e, profile.collection[e.id]); }
+        """)
+        page.wait_for_timeout(200)
+        shots = page.evaluate("galleryShots.length")
+        check(shots > 1, "an entry with several photographs opens with them all",
+              str(shots))
+        if shots > 1:
+            first = page.evaluate("document.getElementById('galImg').src")
+            page.locator("#galNext").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") != first,
+                  "the gallery pages to the next photograph")
+            check(page.locator("#galDots i.on").count() == 1,
+                  "exactly one dot marks where you are")
+            page.locator("#galPrev").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") == first,
+                  "and back again")
+        check(page.locator("#modalFav").is_hidden(),
+              "an entry not in the collection offers no star to keep it by")
+        page.evaluate("document.getElementById('modalClose').click()")
+        page.wait_for_timeout(200)
+
         # Starring must not open the card -- it is a button of its own.
         page.evaluate("document.getElementById('modalBackdrop').classList.remove('open')")
         page.locator("#viewCollection .card .fav").first.click()

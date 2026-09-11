@@ -94,8 +94,11 @@ def make(i, kind):
     # Most entries carry several, revealed one per wrong guess. Not all: the
     # single-photograph path has to be exercised too.
     if i % 3:
+        # Distinct paths, not one path under three names: paging through a
+        # gallery has to actually change the picture, and a fixture where every
+        # photograph resolves to the same file cannot show that it does.
         e["photos"] = [e["image"]] + [
-            {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}-{k}.jpg",
+            {"path": f"images/{kind[:3]}-{i}-{k}.jpg", "file": f"F{i}-{k}.jpg",
              "license": "CC BY-SA 4.0", "credit": f"Photographer {i}-{k}"}
             for k in (2, 3)]
     return e
@@ -145,8 +148,10 @@ img_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(out))), "
 os.makedirs(img_dir, exist_ok=True)
 written = 0
 for e in entries:
-    if "image" in e:
-        with open(os.path.join(img_dir, f"{e['id']}.jpg"), "wb") as f:
+    # One file per photograph, at the path the entry actually points at.
+    for shot in (e.get("photos") or ([e["image"]] if "image" in e else [])):
+        name = os.path.basename(shot["path"])
+        with open(os.path.join(img_dir, name), "wb") as f:
             f.write(SAMPLE_JPEG)
         written += 1
 print(f"wrote {written} placeholder JPEGs to {img_dir}")
