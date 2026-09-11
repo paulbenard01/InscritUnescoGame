@@ -126,6 +126,15 @@ immaterial = [
     row(item=uri("Q999005"), labelEn=lit("Dual Designated Thing", "en"),
         coord=lit("10.0,10.0"), sitelinks=lit(7), country=cat([E + "Q29"])),
 
+    # No P17 at all, only a country of origin. Half the intangible elements
+    # are like this -- a tradition is not obviously a thing that "has a
+    # country" -- and dropping them cost 407 of 916 elements. It must be
+    # placed via the fallback, not discarded.
+    row(item=uri("Q999007"),
+        labelEn=lit("A Tradition With No Country", "en"),
+        sitelinks=lit(19), inscribed=lit("2012-12-06T00:00:00Z"),
+        origin=cat([E + "Q668"])),
+
     # Inscribed by several states at once, which is normal for intangible
     # heritage and was being reduced to whichever country came back first:
     # Nowruz was coming out as "Kurdistan", falconry as "Morocco". Every one of

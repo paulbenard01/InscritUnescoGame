@@ -57,4 +57,4 @@ jobs:
       # the middle of it. Reading a run should not mean paging through it.
       - name: Verdict
         if: always()
-        run: sed -n '/^VERDICT/,$p' ich.log || true
+        run: sed -n '/^WHY THE USABLE POOL/,$p' ich.log || true
