@@ -672,7 +672,7 @@ def main():
         earned = page.evaluate("profile.achievements.length")
         check(earned >= 5, "a filled collection earns a spread of distinctions",
               str(earned))
-        shown = page.locator("#viewPassport > .ach-list > .ach").count()
+        shown = page.locator("#viewPassport > .ach-grid > .ach-tile").count()
         check(shown == earned, "only the earned distinctions are on the page",
               f"{shown} shown, {earned} earned")
         head = page.locator("#viewPassport .panel-head p").last.inner_text()
@@ -681,35 +681,68 @@ def main():
         # An earned stamp is turned; a locked one sits straight.
         rot = page.evaluate("""
           () => {
-            const e = document.querySelector('#viewPassport > .ach-list .stamp-mark');
+            const e = document.querySelector('#viewPassport > .ach-grid .stamp-mark');
             const l = document.querySelector('.ach-locked .stamp-mark');
             return [getComputedStyle(e).transform, l ? getComputedStyle(l).transform : 'none'];
           }
         """)
         check(rot[0] != "none" and rot[0] != rot[1],
               "an earned stamp is struck at an angle, a locked one is not", str(rot))
+        # Three to a row, and the description only when asked for.
+        cols = page.evaluate("""
+          () => {
+            const g = document.querySelector('#viewPassport > .ach-grid');
+            return getComputedStyle(g).gridTemplateColumns.split(' ').length;
+          }
+        """)
+        check(cols == 3, "the stamps sit three to a row", str(cols))
+        check(page.locator("#viewPassport .ach-detail").count() == 0,
+              "no description is shown until a stamp is tapped")
+        tiles = page.locator("#viewPassport > .ach-grid > .ach-tile")
+        # The fourth tile: its detail has to land at the end of the second row,
+        # not at the bottom of the grid, or it reads as unrelated to the tap.
+        target = min(3, tiles.count() - 1)
+        tiles.nth(target).click(); page.wait_for_timeout(200)
+        det = page.locator("#viewPassport .ach-detail")
+        check(det.count() == 1, "tapping a stamp shows its description")
+        check(det.first.inner_text().strip() != "",
+              "which says what it is for", det.first.inner_text())
+        near = page.evaluate("""
+          i => {
+            const g = document.querySelector('#viewPassport > .ach-grid');
+            const kids = [...g.children];
+            const tile = kids.filter(k => k.matches('.ach-tile'))[i];
+            const det = g.querySelector('.ach-detail');
+            return det.getBoundingClientRect().top - tile.getBoundingClientRect().bottom;
+          }
+        """, target)
+        check(0 <= near < 120,
+              "and it opens just under the row that was tapped", str(near))
+        tiles.nth(target).click(); page.wait_for_timeout(200)
+        check(page.locator("#viewPassport .ach-detail").count() == 0,
+              "tapping it again closes it")
         det = page.locator("#viewPassport .ach-locked")
         check(det.count() == 1, "the rest are behind a disclosure")
         check(not page.evaluate(
                 "document.querySelector('.ach-locked').hasAttribute('open')"),
               "which starts closed")
         # Closed means out of the way, not merely unstyled.
-        check(page.locator(".ach-locked .ach").first.is_hidden(),
+        check(page.locator(".ach-locked .ach-tile").first.is_hidden(),
               "a locked distinction is not visible until asked for")
         page.evaluate("document.querySelector('.ach-locked summary').click()")
         page.wait_for_timeout(200)
-        check(page.locator(".ach-locked .ach").first.is_visible(),
+        check(page.locator(".ach-locked .ach-tile").first.is_visible(),
               "and is there when it is")
-        check(page.locator("#viewPassport .ach").count() == expected_ach,
+        check(page.locator("#viewPassport .ach-tile").count() == expected_ach,
               "every distinction is accounted for, open", str(expected_ach))
         # The stamp is drawn, not set in type: a glyph in a circle sat off
         # centre at every size, which is what made it look cheap.
-        box = page.locator("#viewPassport .ach .stamp-mark").first.bounding_box()
+        box = page.locator("#viewPassport .ach-tile .stamp-mark").first.bounding_box()
         check(box and abs(box["width"] - box["height"]) < 2,
               "the stamp is round", str(box))
         centred = page.evaluate("""
           () => {
-            const svg = document.querySelector('.ach .stamp-mark');
+            const svg = document.querySelector('.ach-tile .stamp-mark');
             const ring = svg.querySelector('.ring.inner').getBoundingClientRect();
             const txt = svg.querySelector('.stamp-text').getBoundingClientRect();
             return [Math.abs((ring.left + ring.right) / 2 - (txt.left + txt.right) / 2),
@@ -719,7 +752,7 @@ def main():
         check(max(centred) < 2.5, "and its mark sits in the middle of it",
               str(centred))
         # Names, not numbers: a ladder called Archivist I..VI is a table row.
-        names = page.locator("#viewPassport .ach b").all_inner_texts()
+        names = page.locator("#viewPassport .ach-tile span").all_inner_texts()
         check(not any(re.search(r"\b(I{1,3}|IV|V|VI)$", n) for n in names),
               "no distinction is named by a numeral", str(names[:8]))
         check(any("Discovering" in n or "couverte" in n or "Descubriendo" in n
