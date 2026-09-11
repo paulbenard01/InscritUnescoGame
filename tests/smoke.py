@@ -436,7 +436,21 @@ def main():
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
         check(page.locator("#viewPassport .ach").count() == 5, "five distinctions listed")
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
-        check(page.locator("#viewArchive .arch-row").count() > 5, "archive lists past days")
+        # One row per day since launch, capped at the 60 the archive shows. On
+        # day one that is a single row -- an archive of days nobody could have
+        # played would be padding, not history.
+        expected = min(page.evaluate("todayIndex") + 1, 61)
+        check(page.locator("#viewArchive .arch-row").count() == expected,
+              "archive lists one row per day since launch",
+              f"{page.locator('#viewArchive .arch-row').count()} vs {expected}")
+        # The row for a day that was actually played. Nothing looked at this
+        # before, and it had been printing "76 / undefined" ever since the
+        # score line started carrying its maximum.
+        played = page.locator("#viewArchive .arch-row .arch-score").first.inner_text()
+        check("undefined" not in played and "NaN" not in played,
+              "a played day shows a real score in the archive", played)
+        check("/" in played and played.strip().split("/")[-1].strip().isdigit(),
+              "the archive score carries its maximum", played)
         # colour-blind toggle
         page.evaluate("showView('Passport')"); page.wait_for_timeout(200)
         page.check("#cbToggle"); page.wait_for_timeout(200)
