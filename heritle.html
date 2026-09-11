@@ -287,13 +287,25 @@
   .stamp.s1{border-color:var(--heat-close);color:var(--heat-close);}
 
   /* ---- achievements ---- */
-  .ach-list{display:flex;flex-direction:column;gap:7px;margin-top:12px;}
-  .ach{display:flex;gap:11px;align-items:center;background:var(--navy-2);border-radius:8px;
-    padding:10px 12px;border:1px solid rgba(201,162,75,0.18);}
-  .ach.locked{border-style:dashed;border-color:rgba(156,166,192,0.22);background:transparent;}
-  .ach b{display:block;color:var(--cream);font-size:0.82rem;}
-  .ach.locked b{color:var(--ink-dim);}
-  .ach span{color:var(--ink-dim);font-size:0.7rem;}
+  /* Three to a row: a page of stamps, not a list of them. */
+  .ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;}
+  .ach-tile{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    gap:7px;min-height:104px;padding:12px 5px 11px;background:var(--navy-2);
+    border:1px solid rgba(201,162,75,0.18);border-radius:9px;cursor:pointer;
+    font:inherit;color:inherit;text-align:center;}
+  .ach-tile span{font-size:0.62rem;line-height:1.25;color:var(--cream);}
+  .ach-tile.locked{background:transparent;border-style:dashed;
+    border-color:rgba(156,166,192,0.22);}
+  .ach-tile.locked span{color:var(--ink-dim);}
+  .ach-tile.on{border-color:var(--gold);background:rgba(201,162,75,0.08);}
+  .ach-tile:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  /* Spliced in at the end of the tapped tile's own row, so the description is
+     never far from the stamp it belongs to. */
+  .ach-detail{grid-column:1 / -1;display:flex;gap:12px;align-items:center;
+    background:var(--navy-2);border:1px solid var(--gold-dim);border-radius:9px;
+    padding:11px 13px;}
+  .ach-detail b{display:block;color:var(--cream);font-size:0.85rem;margin-bottom:2px;}
+  .ach-detail span{color:var(--ink-dim);font-size:0.72rem;line-height:1.4;}
   .ach-empty{color:var(--ink-dim);font-size:0.75rem;text-align:center;margin:14px 0 0;}
 
   /* A stamp, drawn rather than set in type. A glyph in a bordered circle sits
@@ -2406,25 +2418,22 @@ function renderPassport(){
     return `<div class="stamp s${tier}" title="Day ${d.day}">
       <b>${Math.round(d.score)}</b><span>#${d.day}</span></div>`;
   }).join('');
-  // Earned on the page, locked out of sight. Twenty-two rows of mostly grey
-  // is a list of things you have not done; what a player comes back to is the
-  // page of stamps they have. The rest are one tap away for whoever wants to
-  // know what is left.
-  const row = (a, got)=>{
-    const [name, desc] = achText(a);
-    return `<div class="ach${got ? '' : ' locked'}">
-      ${stampSvg(a.mark, got)}
-      <div><b>${name}</b><span>${desc}</span></div></div>`;
-  };
+  // Earned on the page, locked out of sight. Twenty-two rows of mostly grey is
+  // a list of things you have not done; what a player comes back to is the page
+  // of stamps they have. The rest are one tap away for whoever wants to know.
+  //
+  // Three to a row, the stamp and its name on the tile, and the description
+  // only when asked for -- a full-width row each turns a page of stamps into a
+  // list again, which is the opposite of what a passport looks like.
   const earned = ACHIEVEMENTS.filter(a => profile.achievements.includes(a.id));
   const locked = ACHIEVEMENTS.filter(a => !profile.achievements.includes(a.id));
   const achEarned = earned.length
-    ? `<div class="ach-list">${earned.map(a => row(a, true)).join('')}</div>`
+    ? achGrid(earned, true)
     : `<p class="ach-empty">${T.achEmpty}</p>`;
   const achLocked = locked.length
     ? `<details class="ach-locked"><summary>${T.achLocked}
          <span class="count">${locked.length}</span></summary>
-       <div class="ach-list">${locked.map(a => row(a, false)).join('')}</div></details>`
+       ${achGrid(locked, false)}</details>`
     : `<p class="ach-empty">${T.achLockedNone}</p>`;
   const ach = achEarned + achLocked;
   document.getElementById('viewPassport').innerHTML =
@@ -2445,6 +2454,44 @@ function renderPassport(){
   document.getElementById('cbToggle').onchange = e=>{
     profile.colorblind = e.target.checked; saveProfile(); applyColorblind(); render();
   };
+  document.querySelectorAll('#viewPassport [data-ach]').forEach(tile=>{
+    tile.addEventListener('click', ()=>{
+      // Tapping the open one closes it, so the grid can go back to being a grid.
+      achOpen = (achOpen === tile.dataset.ach) ? null : tile.dataset.ach;
+      const wasOpen = document.querySelector('.ach-locked')?.hasAttribute('open');
+      renderPassport();
+      // Re-rendering would otherwise fold the locked list shut under the hand
+      // of whoever just tapped something inside it.
+      if(wasOpen) document.querySelector('.ach-locked')?.setAttribute('open', '');
+    });
+  });
+}
+
+/* Which distinction is showing its description, if any. */
+let achOpen = null;
+
+/* A grid of stamps, with the description of the open one spliced in at the end
+   of its own row rather than at the bottom of the grid -- on a page of twenty
+   tiles, a detail panel far from the tile you tapped reads as unrelated. */
+function achGrid(list, got){
+  const cols = 3;
+  const open = list.find(a => a.id === achOpen);
+  const out = [];
+  list.forEach((a, i)=>{
+    const [name] = achText(a);
+    out.push(`<button class="ach-tile${got ? '' : ' locked'}` +
+             `${achOpen === a.id ? ' on' : ''}" data-ach="${a.id}"` +
+             ` aria-expanded="${achOpen === a.id}">` +
+             `${stampSvg(a.mark, got)}<span>${name}</span></button>`);
+    const rowStart = Math.floor(i / cols) * cols;
+    const lastInRow = (i % cols === cols - 1) || i === list.length - 1;
+    if(open && lastInRow && list.slice(rowStart, i + 1).some(x => x.id === achOpen)){
+      const [name2, desc] = achText(open);
+      out.push(`<div class="ach-detail">${stampSvg(open.mark, got)}
+        <div><b>${name2}</b><span>${desc}</span></div></div>`);
+    }
+  });
+  return `<div class="ach-grid">${out.join('')}</div>`;
 }
 
 function renderArchive(){
