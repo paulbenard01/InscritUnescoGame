@@ -764,6 +764,10 @@ def wikipedia_images(titles_by_lang):
                 r = requests.get(api, params={
                     "action": "query", "prop": "pageimages",
                     "piprop": "original", "pilicense": "any",
+                    # pilimit defaults to one page per request, so a batch of
+                    # fifty titles came back with a single image and the
+                    # fallback recovered almost nothing.
+                    "pilimit": 50,
                     "titles": "|".join(batch), "format": "json",
                 }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
                 r.raise_for_status()
