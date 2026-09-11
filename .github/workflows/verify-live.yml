@@ -14,7 +14,12 @@ on:
   workflow_run:
     workflows: ['Deploy to GitHub Pages']
     types: [completed]
+  # main only. This checks the deployed site, so running it from a feature
+  # branch tests main's deployment against the branch's expectations: any
+  # branch that adds a check for something not yet deployed fails by
+  # construction, which says nothing about either.
   push:
+    branches: [main]
     paths:
       - '.github/workflows/verify-live.yml'
       - 'tests/smoke.py'
@@ -52,8 +57,16 @@ jobs:
           dcode=$(curl -sS -o /tmp/live.json -w '%{http_code}' -L "${URL%/}/data/dataset.json")
           echo "dataset: HTTP $dcode, $(wc -c < /tmp/live.json) bytes"
           test "$dcode" = "200"
+          lcode=$(curl -sS -o /tmp/land.json -w '%{http_code}' -L "${URL%/}/data/land.json")
+          echo "land: HTTP $lcode, $(wc -c < /tmp/land.json) bytes"
+          test "$lcode" = "200"
           python - <<'PY'
           import json
+          land = json.load(open('/tmp/land.json'))
+          assert land.get('width') == 440 and land.get('height') == 220, \
+              "map geometry built for a different canvas — coastlines would be misplaced"
+          assert len(land.get('path', '')) > 100000, "map geometry looks truncated"
+          print(f"live map geometry: {land['path'].count(',')} vertices")
           d = json.load(open('/tmp/live.json'))
           e = d['entries']
           print(f"live dataset: {len(e)} entries, {len(d['countries'])} countries")

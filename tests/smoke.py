@@ -73,6 +73,24 @@ def play_day(page, base, day, width, label):
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
     check(page.evaluate("targets.length") == 3, f"{label}: three targets chosen")
+    # The detailed geometry is fetched, not inlined, so a missing or
+    # canvas-mismatched file degrades silently to the coarse outline.
+    check(page.evaluate("LAND_PATH !== null"), f"{label}: detailed map geometry loaded")
+    # Pin radii are in world units and must counter-scale, or a guess dot
+    # covers a whole country once you zoom in.
+    r_world, r_zoom = page.evaluate("""
+      () => {
+        addPin(0, 0, 'far', false);
+        const c = document.querySelector('#pinLayer circle');
+        const a = parseFloat(c.getAttribute('r'));
+        mapView.w = MAP_W / 8; applyView();
+        const b = parseFloat(c.getAttribute('r'));
+        mapView = { x:0, y:0, w:MAP_W, h:MAP_H }; applyView();
+        return [a, b];
+      }
+    """)
+    check(r_zoom < r_world / 4, f"{label}: pins scale with the map",
+          f"world r={r_world} zoomed r={r_zoom}")
 
     # ---- every language renders ----
     for code, needle in (("fr", "devinettes"), ("es", "adivinanzas"), ("en", "heritage")):
@@ -80,6 +98,26 @@ def play_day(page, base, day, width, label):
         page.wait_for_timeout(120)
         check(needle in page.locator("#tagline").inner_text().lower(),
               f"{label}: {code.upper()} renders")
+
+    # ---- a guess must report its verdict without scrolling ----
+    # The verdict used to live only in the history list below the map, so on a
+    # phone a guess looked like it had done nothing.
+    wrong_first = page.evaluate("""
+      () => COUNTRIES.find(c => c.names.en !== targets[0].country.en).id
+    """)
+    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", wrong_first)
+    page.wait_for_timeout(700)      # the panel is scrolled into view smoothly
+    readout = page.locator("#mapReadout")
+    check("last-guess" in (readout.get_attribute("class") or ""),
+          f"{label}: the guess verdict is shown under the map")
+    check(readout.locator(".hist-tag").count() == 2,
+          f"{label}: continent and region are marked on it",
+          str(readout.locator(".hist-tag").count()))
+    rbox, vh = readout.bounding_box(), page.viewport_size["height"]
+    # Wholly on screen and not flush against the bottom edge.
+    check(bool(rbox) and rbox["y"] >= 0 and rbox["y"] + rbox["height"] <= vh - 8,
+          f"{label}: the verdict is on screen without scrolling",
+          f"bottom={rbox and round(rbox['y'] + rbox['height'])} vh={vh}")
 
     # ---- round 1: win ----
     page.evaluate("submitGuess(targetCountry())")
@@ -113,6 +151,11 @@ def play_day(page, base, day, width, label):
 
     # ---- final screen: 1 win / 1 loss / 1 solved ----
     check(not page.locator("#finalResult").is_hidden(), f"{label}: final screen shown")
+    # The badge row is emptied on this screen; an empty bordered pill used to
+    # draw a small box above the summary.
+    check(page.locator(".meta-row").is_hidden() or
+          (page.locator(".meta-row").bounding_box() or {}).get("height", 0) == 0,
+          f"{label}: no empty badge box above the summary")
     grid = page.locator("#finalResult .share-grid").inner_text()
     check("—" in grid or len(grid.strip()) > 0, f"{label}: share grid rendered", repr(grid))
     check(grid.count("\n") == 2, f"{label}: share grid has one line per round", repr(grid))
