@@ -170,6 +170,9 @@ SELECT ?item
        (GROUP_CONCAT(DISTINCT ?continentEn_; separator="%(sep)s") AS ?continentEn)
        (GROUP_CONCAT(DISTINCT ?image_;       separator="%(sep)s") AS ?image)
        (SAMPLE(?commonsCat_) AS ?commonsCat)
+       (SAMPLE(?enTitle_) AS ?enTitle)
+       (SAMPLE(?frTitle_) AS ?frTitle)
+       (SAMPLE(?esTitle_) AS ?esTitle)
        (GROUP_CONCAT(DISTINCT ?criterionEn_; separator="%(sep)s") AS ?criterionEn)
        (GROUP_CONCAT(DISTINCT ?siteId_;      separator="%(sep)s") AS ?siteId)
        (GROUP_CONCAT(DISTINCT ?officialUrl_; separator="%(sep)s") AS ?officialUrl)
@@ -195,6 +198,15 @@ WHERE {
   OPTIONAL { ?item wdt:P8592 ?image_ . }    # aerial view
   OPTIONAL { ?item wdt:P2716 ?image_ . }    # collage
   OPTIONAL { ?item wdt:P373 ?commonsCat_ . }
+  # The Wikipedia article. Three hundred intangible elements have no image
+  # property and no Commons category, but most have an article, and an article
+  # about a tradition nearly always leads with a photograph of it.
+  OPTIONAL { ?enArt_ schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> ;
+                     schema:name ?enTitle_ . }
+  OPTIONAL { ?frArt_ schema:about ?item ; schema:isPartOf <https://fr.wikipedia.org/> ;
+                     schema:name ?frTitle_ . }
+  OPTIONAL { ?esArt_ schema:about ?item ; schema:isPartOf <https://es.wikipedia.org/> ;
+                     schema:name ?esTitle_ . }
   OPTIONAL { ?item wikibase:sitelinks ?sitelinks_ . }
   OPTIONAL { ?item wdt:P17 ?country_ . }
   # Half the intangible elements carry no P17 at all: a tradition is not
@@ -605,6 +617,8 @@ def fetch_designation(pool, limit=None):
                 "official_urls": multi(row, "officialUrl"),
                 "images": multi(row, "image"),
                 "commons_cat": val(row, "commonsCat"),
+                "wiki": [(l, val(row, f"{l}Title")) for l in ("en", "fr", "es")
+                         if val(row, f"{l}Title")],
                 "aliases": {"en": [], "fr": [], "es": []},
             }
             it["country_qid"] = it["country_qids"][0] if it["country_qids"] else None
@@ -730,6 +744,43 @@ def commons_imageinfo_many(filenames):
     return out
 
 
+def wikipedia_images(titles_by_lang):
+    """Lead images for Wikipedia articles, batched by language.
+
+    The last resort for the three hundred elements -- nearly all intangible --
+    with no image property and no Commons category. A Wikipedia article about a
+    tradition almost always leads with a photograph of it, and the file lives
+    on Commons, so the licence lookup is the same one.
+    """
+    out = {}
+    if FIXTURES:
+        return out
+    for lang, titles in titles_by_lang.items():
+        api = f"https://{lang}.wikipedia.org/w/api.php"
+        titles = list(titles)
+        for i in range(0, len(titles), 50):
+            batch = titles[i:i + 50]
+            try:
+                r = requests.get(api, params={
+                    "action": "query", "prop": "pageimages",
+                    "piprop": "original", "pilicense": "any",
+                    "titles": "|".join(batch), "format": "json",
+                }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+                r.raise_for_status()
+                for page in r.json().get("query", {}).get("pages", {}).values():
+                    src = (page.get("original") or {}).get("source")
+                    title = page.get("title")
+                    if not src or not title:
+                        continue
+                    name = unquote(src.rsplit("/", 1)[-1]).replace("_", " ")
+                    if is_photo(name):
+                        out[(lang, title)] = name
+            except (requests.RequestException, ValueError, KeyError):
+                pass
+            time.sleep(COMMONS_DELAY)
+    return out
+
+
 def commons_category_files(category, limit=6):
     """Photo filenames from a Commons category.
 
@@ -807,6 +858,27 @@ def resolve_photos(dataset, all_items):
                 wanted[n] = None
         if i % 100 == 0:
             print(f"  category lookups {i}/{len(thin)}")
+
+    # Still nothing: try the Wikipedia article's lead image.
+    bare = [e for e in dataset if not e["_photo_names"]]
+    if bare:
+        by_lang = {}
+        for entry in bare:
+            for lang, title in all_items[entry["qid"]].get("wiki", []):
+                by_lang.setdefault(lang, []).append(title)
+        print(f"  {len(bare)} entries still have nothing; trying "
+              f"{sum(len(v) for v in by_lang.values())} Wikipedia articles")
+        leads = wikipedia_images(by_lang)
+        found = 0
+        for entry in bare:
+            for lang, title in all_items[entry["qid"]].get("wiki", []):
+                name = leads.get((lang, title))
+                if name:
+                    entry["_photo_names"].append(name)
+                    wanted[name] = None
+                    found += 1
+                    break
+        print(f"  Wikipedia supplied a photograph for {found} of them")
 
     print(f"  looking up {len(wanted)} distinct files on Commons")
     info_by_name = commons_imageinfo_many(sorted(wanted))
@@ -1059,6 +1131,14 @@ def main():
     if not args.skip_images:
         print("\nResolving photos...")
         resolve_photos(dataset, all_items)
+        # The game shows you a photograph and asks where it is. An entry
+        # without one is not a hard round, it is an empty frame and a clue
+        # ladder, so it does not belong in the pool at all.
+        before = len(dataset)
+        dataset = [e for e in dataset if "image" in e]
+        if len(dataset) != before:
+            print(f"  dropped {before - len(dataset)} entries with no photograph "
+                  f"-- a round with no picture is not playable")
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 
