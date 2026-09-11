@@ -626,7 +626,7 @@ const UI = {
        bonusIntro:'Bonus round — a living tradition. Three guesses, worth half the day.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
-       learnLabel:'Learn more',
+       learnLabel:'Learn more', linkWiki:'Encyclopedia article',
        linkOfficial:'Official UNESCO Listing',
        linkVideo:(n)=>`Discover videos about ${n}`, close:'Close',
        galOf:(i,n)=>`Photograph ${i} of ${n}`, noPhoto:'No photograph available' },
@@ -680,7 +680,7 @@ const UI = {
        bonusIntro:'Manche bonus — une tradition vivante. Trois essais, la moitié de la journée en jeu.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
-       learnLabel:'En savoir plus',
+       learnLabel:'En savoir plus', linkWiki:'Article encyclopédique',
        linkOfficial:'Fiche officielle UNESCO',
        linkVideo:(n)=>`Découvrir des vidéos sur ${n}`, close:'Fermer',
        galOf:(i,n)=>`Photographie ${i} sur ${n}`, noPhoto:'Aucune photographie disponible' },
@@ -734,7 +734,7 @@ const UI = {
        bonusIntro:'Ronda bonus — una tradición viva. Tres intentos, la mitad de la jornada en juego.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
-       learnLabel:'Saber más',
+       learnLabel:'Saber más', linkWiki:'Artículo enciclopédico',
        linkOfficial:'Ficha oficial de la UNESCO',
        linkVideo:(n)=>`Descubre vídeos sobre ${n}`, close:'Cerrar',
        galOf:(i,n)=>`Fotografía ${i} de ${n}`, noPhoto:'No hay fotografía disponible' }
@@ -1106,7 +1106,8 @@ function catalogue(entry, solved){
     // What the links are built from, so a catalogued entry stays readable even
     // if a later dataset no longer carries it. The description is not copied:
     // it is long, and it is read off the live entry when there is one.
-    qid: entry.qid, siteId: entry.siteId, officialUrl: entry.officialUrl
+    qid: entry.qid, siteId: entry.siteId, officialUrl: entry.officialUrl,
+    wiki: entry.wiki
   };
   saveProfile();
 }
@@ -1901,15 +1902,21 @@ function learnLinks(entry){
        <span class="ll-text">${label}</span>
        <span class="ll-go" aria-hidden="true">↗</span></a>`;
 
-  // No encyclopaedia link. The article titles come from Wikidata's sitelinks and
-  // a fair few no longer resolve -- renamed, merged or redirected since -- and a
-  // link that lands on nothing is worse than one that was never offered.
-
+  // One place to read about it. The official listing where the entry has one;
+  // otherwise the encyclopaedia, but only for entries whose article title the
+  // build checked against the API -- the titles come from Wikidata's sitelinks
+  // and a share of them no longer resolve, and a link that lands on nothing is
+  // worse than one that was never offered.
+  const w = entry.wiki || {};
+  const wlang = w[lang] ? lang : (w.en ? 'en' : (w.fr ? 'fr' : (w.es ? 'es' : null)));
   if(entry.siteId){
     out.push(a(`https://whc.unesco.org/en/list/${encodeURIComponent(entry.siteId)}`,
                '§', T.linkOfficial));
   } else if(entry.officialUrl){
     out.push(a(entry.officialUrl, '§', T.linkOfficial));
+  } else if(wlang){
+    out.push(a(`https://${wlang}.wikipedia.org/wiki/${encodeURIComponent(w[wlang])}`,
+               'W', T.linkWiki));
   }
 
   // Last, and named after the thing itself: "videos about X" says what you get,

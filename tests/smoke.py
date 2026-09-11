@@ -506,6 +506,44 @@ def main():
               "the video row is named after the place", str(labels))
         check(labels[-1].lower().startswith("discover videos about"),
               "and comes last, under the reading links", str(labels))
+        # One place to read about it, never two. The official listing where the
+        # entry has one; the encyclopaedia only where it does not, and only for
+        # a title the build checked.
+        rows = page.evaluate("""
+          () => {
+            const pick = (test) => POOL.find(test);
+            const read = (e) => {
+              const div = document.createElement('div');
+              div.innerHTML = learnLinks(e).join('');
+              return [...div.querySelectorAll('.learn-link')].map(a => a.href);
+            };
+            const withSite = pick(e => e.siteId);
+            const withWiki = pick(e => !e.siteId && !e.officialUrl && e.wiki);
+            const withNone = pick(e => !e.siteId && !e.officialUrl && !e.wiki);
+            return {
+              site: withSite ? read(withSite) : null,
+              wiki: withWiki ? read(withWiki) : null,
+              none: withNone ? read(withNone) : null
+            };
+          }
+        """)
+        if rows["site"]:
+            check(any("whc.unesco.org" in h for h in rows["site"]),
+                  "an inscribed site links to its official listing", str(rows["site"]))
+            check(not any("wikipedia.org" in h for h in rows["site"]),
+                  "and is not also sent to the encyclopaedia", str(rows["site"]))
+        check(rows["wiki"] is not None,
+              "the pool has entries with no official page but a checked article")
+        if rows["wiki"]:
+            check(any("wikipedia.org" in h for h in rows["wiki"]),
+                  "an entry with no official page falls back to the article",
+                  str(rows["wiki"]))
+            check(len(rows["wiki"]) == 2,
+                  "which is one place to read and one to watch", str(rows["wiki"]))
+        if rows["none"]:
+            check(len(rows["none"]) == 1 and "youtube" in rows["none"][0],
+                  "an entry with neither is left with the video search alone",
+                  str(rows["none"]))
         # Favouriting from the card that is already open.
         page.locator("#modalFav").click(); page.wait_for_timeout(200)
         page.evaluate("document.getElementById('modalClose').click()")
