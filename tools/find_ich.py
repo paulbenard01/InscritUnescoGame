@@ -149,6 +149,10 @@ def search(term, kind="item", limit=8):
 
 
 def main():
+    # Findings worth repeating at the end. A probe whose answer is buried
+    # sixty lines up in a CI log is a probe nobody reads.
+    verdict = []
+
     print("=" * 72)
     print("WHICH WIKIDATA DESIGNATION MARKS INTANGIBLE HERITAGE?")
     print(f"official register: about {OFFICIAL_TOTAL} elements")
@@ -192,6 +196,7 @@ def main():
             if abs(n - OFFICIAL_TOTAL) < 250 or "umanity" in vlabel or "afeguard" in vlabel:
                 mark = "  <--"
                 near.append((pid, qid, vlabel, n))
+                verdict.append((pid, qid, vlabel, n))
             print(f"  {qid:12} {vlabel[:50]:<50} {n:>5}{mark}")
         for ppid, qid, vlabel, n in near[:4]:
             print(f"\n  {qid} — {vlabel}  [{n} items]")
@@ -249,11 +254,25 @@ def main():
             print(f"      · {name[:60]}")
 
     print("\n" + "=" * 72)
-    print(f"Read it this way: the right value has roughly {OFFICIAL_TOTAL} "
-          "members, few coordinates,")
-    print("and members that are practices and festivals rather than sites.")
-    print("Nothing here is applied automatically — build_dataset.py keeps the")
-    print("intangible pool disabled until a human confirms the value.")
+    print("VERDICT")
+    print("=" * 72)
+    if not verdict:
+        print("  Nothing matched. The register is not reachable by the routes")
+        print("  tried here; widen SEARCH_TERMS or inspect P3259 by hand.")
+        return 0
+    print(f"  The register (about {OFFICIAL_TOTAL} elements) is not a heritage")
+    print("  designation (P1435) at all. No P1435 value comes close, which is")
+    print("  why pointing the pipeline at one found a list of places instead.")
+    print("  It is a status, whose values are the individual lists:\n")
+    for pid, qid, vlabel, n in sorted(verdict, key=lambda r: -r[3]):
+        print(f"    {pid} = {qid:12} {vlabel[:46]:<46} {n:>5} items")
+    total = sum(n for _, _, _, n in verdict)
+    print(f"\n  Those lists together hold {total} items, against about "
+          f"{OFFICIAL_TOTAL} official.")
+    print("  To restore the intangible round, build_dataset.py needs to select")
+    print("  on that status property and those values, not on P1435.")
+    print("\n  Not applied automatically. The pool stays disabled until a human")
+    print("  confirms these are the right lists.")
     return 0
 
 
