@@ -52,3 +52,9 @@ jobs:
           name: ich-probe
           path: ich.log
           if-no-files-found: warn
+
+      # Last, so the answer sits at the end of the log rather than buried in
+      # the middle of it. Reading a run should not mean paging through it.
+      - name: Verdict
+        if: always()
+        run: sed -n '/^VERDICT/,$p' ich.log || true
