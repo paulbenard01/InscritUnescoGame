@@ -10,6 +10,9 @@ on:
   push:
     paths:
       - '.github/workflows/land-sizes.yml'
+      # The generator too: a fix to it is exactly when this needs re-running,
+      # and without it the last fix pushed and nothing fired.
+      - 'tools/build_land.py'
 
 permissions:
   contents: read
