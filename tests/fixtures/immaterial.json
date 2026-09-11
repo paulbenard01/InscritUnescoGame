@@ -158,6 +158,29 @@
    {
     "item": {
      "type": "uri",
+     "value": "http://www.wikidata.org/entity/Q999008"
+    },
+    "labelEn": {
+     "type": "literal",
+     "value": "A Tradition Of A Vanished State",
+     "xml:lang": "en"
+    },
+    "sitelinks": {
+     "type": "literal",
+     "value": "11"
+    },
+    "inscribed": {
+     "type": "literal",
+     "value": "2011-11-27T00:00:00Z"
+    },
+    "country": {
+     "type": "literal",
+     "value": "http://www.wikidata.org/entity/Q12560"
+    }
+   },
+   {
+    "item": {
+     "type": "uri",
      "value": "http://www.wikidata.org/entity/Q999006"
     },
     "labelEn": {

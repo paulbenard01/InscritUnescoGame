@@ -464,7 +464,7 @@ const FALLBACK_DATA = [
 const UI = {
   en:{ tagline:'three sites and a tradition each day', tapPrompt:'Tap the map to place your guess', tapAgain:'Tap again to move it',
        confirmGuess:'Guess', tapWater:'That is open water — tap a country',
-       tapUnknown:'No country there to guess',
+       tapUnknown:'No entries from that country',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
        readoutStart:'Make your first guess', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
@@ -509,7 +509,7 @@ const UI = {
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
   fr:{ tagline:'trois sites et une tradition chaque jour', tapPrompt:'Touchez la carte pour placer votre proposition', tapAgain:'Touchez à nouveau pour la déplacer',
        confirmGuess:'Proposer', tapWater:'C’est en pleine eau — touchez un pays',
-       tapUnknown:'Aucun pays à proposer ici',
+       tapUnknown:'Aucune entrée pour ce pays',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
        readoutStart:'Faites votre première proposition', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
@@ -554,7 +554,7 @@ const UI = {
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
   es:{ tagline:'tres sitios y una tradición cada día', tapPrompt:'Toca el mapa para colocar tu propuesta', tapAgain:'Toca otra vez para moverla',
        confirmGuess:'Proponer', tapWater:'Eso es mar abierto — toca un país',
-       tapUnknown:'Aquí no hay ningún país que proponer',
+       tapUnknown:'Sin entradas de ese país',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
        readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
@@ -1410,6 +1410,23 @@ function isoAt(x, y){
   return null;
 }
 
+/* A country too small to have a polygon at this resolution -- Vatican City is
+   400m across -- would otherwise be impossible to guess even though it holds
+   inscriptions. Fall back to the nearest centroid within about ten screen
+   pixels, which is tight enough that it never hijacks a tap on open sea. */
+const SNAP_PX = 10;
+function countryNear(x, y){
+  const perPx = mapView.w / (document.getElementById('mapSvg').getBoundingClientRect().width || 1);
+  const limit = SNAP_PX * perPx;
+  let best = null, bestD = Infinity;
+  for(const c of COUNTRIES){
+    const p = project(c.lat, c.lng);
+    const d = Math.hypot(p.x - x, p.y - y);
+    if(d < bestD){ bestD = d; best = c; }
+  }
+  return bestD <= limit ? best : null;
+}
+
 /* The guessable country carrying that ISO code, if the dataset knows it. */
 function countryByIso(iso){
   if(!iso) return null;
@@ -1668,9 +1685,11 @@ function handleMapTap(evt){
   if(panMoved) return;                       // that was a drag, not a tap
   const w = screenToWorld(evt.clientX, evt.clientY);
   const iso = isoAt(w.x, w.y);
-  if(!iso){ flashHint(t().tapWater); return; }
-  const country = countryByIso(iso);
-  if(!country){ flashHint(t().tapUnknown); return; }
+  let country = countryByIso(iso);
+  // Nothing under the point, or a country the dataset has no entries for:
+  // try the microstate snap before giving up.
+  if(!country) country = countryNear(w.x, w.y);
+  if(!country){ flashHint(iso ? t().tapUnknown : t().tapWater); return; }
   if(currentGuesses().some(g => g.id === country.id)){
     // Already guessed: say so rather than silently doing nothing.
     flashHint(country.names[lang] + ' \u2713');

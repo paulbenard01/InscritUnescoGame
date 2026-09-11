@@ -135,6 +135,13 @@ immaterial = [
         sitelinks=lit(19), inscribed=lit("2012-12-06T00:00:00Z"),
         origin=cat([E + "Q668"])),
 
+    # Answerable only by a state that no longer exists -- must be dropped, not
+    # offered as a round whose answer nobody can point to.
+    row(item=uri("Q999008"),
+        labelEn=lit("A Tradition Of A Vanished State", "en"),
+        sitelinks=lit(11), inscribed=lit("2011-11-27T00:00:00Z"),
+        country=cat([E + "Q12560"])),
+
     # Inscribed by several states at once, which is normal for intangible
     # heritage and was being reduced to whichever country came back first:
     # Nowruz was coming out as "Kurdistan", falconry as "Morocco". Every one of
@@ -164,6 +171,12 @@ country_info = [
     row(country=uri("Q878"), iso=lit("AE"), cEn=lit("United Arab Emirates", "en"),
         cFr=lit("Émirats arabes unis", "fr"), cEs=lit("Emiratos Árabes Unidos", "es"),
         coord=lit("24.0,54.0"), contEn=lit("Asia", "en")),
+    # No ISO code: a historical state, which is what Wikidata's P17 sometimes
+    # returns. It cannot be pointed at on a map, so it is not a valid answer
+    # and anything answerable only by it has to go.
+    row(country=uri("Q12560"), cEn=lit("Ottoman Empire", "en"),
+        cFr=lit("Empire ottoman", "fr"), coord=lit("41.0,29.0"),
+        contEn=lit("Europe", "en")),
     row(country=uri("Q668"), iso=lit("IN"), cEn=lit("India", "en"), cFr=lit("Inde", "fr"),
         cEs=lit("India", "es"), coord=lit("21.0,78.0"), contEn=lit("Asia", "en")),
 ]

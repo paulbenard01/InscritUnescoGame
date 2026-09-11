@@ -940,6 +940,28 @@ def main():
     print("\nResolving countries...")
     countries = resolve_countries(all_items)
 
+    # The guess is a point on the map, so the answer has to be somewhere a
+    # finger can land. Wikidata's P17 is not always a modern state: it returns
+    # the Ottoman Empire, the Soviet Union, Shu, and the odd Japanese town.
+    # Those cannot be pointed at, so they are not answers -- an ISO 3166-1 code
+    # is the test, since that is also what the map's polygons are keyed by.
+    placeable = {q for q, r in countries.items() if r.get("iso")}
+    dropped_hist = unplaceable = 0
+    for it in list(all_items.values()):
+        before = it.get("country_qids") or []
+        kept = [q for q in before if q in placeable]
+        if len(kept) != len(before):
+            dropped_hist += len(before) - len(kept)
+        it["country_qids"] = kept
+        it["country_qid"] = kept[0] if kept else None
+        if not kept:
+            # No country anyone could point at: the round would have no
+            # answer. Better absent than unanswerable.
+            del all_items[it["qid"]]
+            unplaceable += 1
+    print(f"\n  dropped {dropped_hist} non-modern country statement(s); "
+          f"{unplaceable} item(s) had no placeable country and were removed")
+
     coverage = {"names": Counter(), "desc": Counter()}
     seen_ids, dataset = set(), []
     no_name = no_coord = 0
@@ -977,6 +999,11 @@ def main():
     no_coord = []
     for q, r in countries.items():
         if not (r.get("en") or r.get("fr") or r.get("es")):
+            continue
+        # Same rule as above: the vocabulary is exactly what the map can
+        # resolve a tap to, so an entry here without an ISO code would be a
+        # country the player is offered but can never point at.
+        if not r.get("iso"):
             continue
         rec = {"en": r.get("en") or q,
                "fr": r.get("fr") or r.get("en") or q,
