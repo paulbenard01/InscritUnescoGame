@@ -115,6 +115,17 @@ def play_day(page, base, day, width, label):
           f"{label}: tapping open water does not spend a guess")
     check(page.locator("#pendingGuess").is_hidden(),
           f"{label}: open water proposes nothing")
+    # The confirm bar sits below the map; on a phone that is off-screen, so a
+    # pin would appear with no visible way to commit it.
+    pt = page.evaluate("() => { const c = COUNTRIES[0]; return {lat:c.lat, lng:c.lng}; }")
+    page.evaluate(TAP_JS, pt)
+    page.wait_for_timeout(700)
+    pb, vh = page.locator("#pendingGuess").bounding_box(), page.viewport_size["height"]
+    check(bool(pb) and pb["y"] >= 0 and pb["y"] + pb["height"] <= vh - 8,
+          f"{label}: the confirm bar is on screen",
+          f"bottom={pb and round(pb['y'] + pb['height'])} vh={vh}")
+    page.evaluate("clearPending(); renderMapForRound();")
+    page.wait_for_timeout(150)
     # The detailed geometry is fetched, not inlined, so a missing or
     # canvas-mismatched file degrades silently to the coarse outline.
     check(page.evaluate("LAND_PATH !== null"), f"{label}: detailed map geometry loaded")

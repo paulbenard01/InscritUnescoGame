@@ -123,7 +123,8 @@
   /* A tap is cheap to make by accident and there are only three guesses a
      round, so a tap proposes and a second, deliberate press commits. */
   .pending{display:flex;align-items:center;gap:10px;background:var(--navy-2);
-    border:1px solid var(--gold);border-radius:8px;padding:8px 8px 8px 14px;}
+    border:1px solid var(--gold);border-radius:8px;padding:8px 8px 8px 14px;
+    scroll-margin-bottom:26px;}
   /* An author display rule beats the UA stylesheet's [hidden], so the bar
      stayed on screen, empty, with the attribute set. */
   .pending[hidden]{display:none;}
@@ -1670,6 +1671,9 @@ function showPending(country){
   document.getElementById('confirmGuess').textContent = t().confirmGuess;
   box.hidden = false;
   renderTapHint();
+  // On a phone the confirm bar sits below the map, off the bottom of the
+  // screen: the pin would appear with no visible way to commit it.
+  box.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
 function flashHint(msg){
