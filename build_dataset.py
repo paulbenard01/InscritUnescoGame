@@ -803,6 +803,86 @@ def wikipedia_images(titles_by_lang):
     return out
 
 
+def resolve_titles_from_response(body, requested):
+    """Which of the titles asked about actually have an article, and under what
+    name now.
+
+    Pure, so the shapes the API answers with can be tested without the network.
+    A query answers with three lists that have to be read together:
+
+      normalized  the title as MediaWiki spells it  ("mount Fuji" -> "Mount Fuji")
+      redirects   where a moved article now lives   ("Kimchi" -> "Kimjang")
+      pages       one per resolved title; a page with "missing" has no article
+
+    Returns {requested_title: canonical_title} for the ones that resolve, and
+    omits the rest. Titles are matched canonically, because what comes back is
+    not spelled the way it was asked for.
+    """
+    q = body.get("query") or {}
+    hop = {}
+    for step in ("normalized", "redirects"):
+        for r in q.get(step) or []:
+            if r.get("from") and r.get("to"):
+                hop[canon_title(r["from"])] = r["to"]
+
+    live = set()
+    for page in (q.get("pages") or {}).values():
+        if "missing" in page or page.get("invalid") or not page.get("title"):
+            continue
+        live.add(canon_title(page["title"]))
+
+    out = {}
+    for title in requested:
+        # Follow the chain of renames -- normalisation then redirect -- rather
+        # than one hop, and never in a circle.
+        seen, cur = set(), title
+        while canon_title(cur) in hop and canon_title(cur) not in seen:
+            seen.add(canon_title(cur))
+            cur = hop[canon_title(cur)]
+        if canon_title(cur) in live:
+            out[title] = cur
+    return out
+
+
+def verify_wiki_titles(titles_by_lang):
+    """Keep only the article titles that still resolve, under their current name.
+
+    The titles come from Wikidata's sitelinks, and articles get renamed, merged
+    and redirected, so a share of them lead nowhere. A link that lands on
+    nothing is worse than one that was never offered, so the dataset only ever
+    carries titles this has seen answer.
+    """
+    out = {}
+    if FIXTURES:
+        # Offline, take them at face value: there is nothing to ask.
+        return {(l, t): t for l, ts in titles_by_lang.items() for t in ts}
+    checked = 0
+    for lang, titles in titles_by_lang.items():
+        api = f"https://{lang}.wikipedia.org/w/api.php"
+        titles = sorted(set(titles))
+        for i in range(0, len(titles), 50):
+            batch = titles[i:i + 50]
+            try:
+                r = requests.get(api, params={
+                    "action": "query", "redirects": 1,
+                    "titles": "|".join(batch), "format": "json",
+                }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+                r.raise_for_status()
+                body = r.json()
+                if "error" in body:
+                    print(f"    {lang}: API error — "
+                          f"{body['error'].get('code')}: {body['error'].get('info')}")
+                    continue
+                for asked, now in resolve_titles_from_response(body, batch).items():
+                    out[(lang, asked)] = now
+            except (requests.RequestException, ValueError, KeyError) as err:
+                print(f"    {lang}: batch failed — {type(err).__name__}: {err}")
+            checked += len(batch)
+            time.sleep(COMMONS_DELAY)
+    print(f"  checked {checked} article titles; {len(out)} resolve")
+    return out
+
+
 def commons_category_files(category, limit=6):
     """Photo filenames from a Commons category.
 
@@ -1186,6 +1266,43 @@ def main():
         if len(dataset) != before:
             print(f"  dropped {before - len(dataset)} entries with no photograph "
                   f"-- a round with no picture is not playable")
+
+    # An entry with no official element page has nowhere to send a player but
+    # the encyclopaedia, so those are the titles worth checking -- and the only
+    # ones the game will offer. Checking just them keeps this to a handful of
+    # requests rather than sixty.
+    orphans = [e for e in dataset
+               if not (e.get("siteId") or e.get("officialUrl")) and e.get("wiki")]
+    print(f"\n{len(orphans)} entries have no official page; "
+          f"checking their article titles...")
+    if orphans:
+        by_lang = {}
+        for e in orphans:
+            for l, t in e["wiki"].items():
+                by_lang.setdefault(l, []).append(t)
+        good = verify_wiki_titles(by_lang)
+        kept = dropped = 0
+        for e in orphans:
+            fixed = {}
+            for l, t in e["wiki"].items():
+                now = good.get((l, t))
+                if now:
+                    fixed[l] = now
+                    kept += 1
+                else:
+                    dropped += 1
+            if fixed:
+                e["wiki"] = fixed
+            else:
+                del e["wiki"]
+        still = sum(1 for e in orphans if not e.get("wiki"))
+        print(f"  kept {kept} titles, dropped {dropped} that lead nowhere")
+        print(f"  {still} of these entries now have no link out at all")
+    # Every other entry has an official page, which is what the game shows, so
+    # its unchecked titles are dead weight in a file the game downloads.
+    for e in dataset:
+        if (e.get("siteId") or e.get("officialUrl")) and "wiki" in e:
+            del e["wiki"]
 
     dataset.sort(key=lambda e: -e["sitelinks"])  # fame-ranked, highest first
 

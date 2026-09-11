@@ -60,6 +60,46 @@ def main():
                  "Song.wav"):
         check(not bd.is_photo(name), f"{name} does not")
 
+    print("\n== resolve_titles_from_response ==")
+    # Everything the API can answer with, in one response: a title spelled
+    # differently, one that moved, one that is gone, and one that is fine.
+    body = {"query": {
+        "normalized": [{"from": "mount fuji", "to": "Mount Fuji"},
+                       {"from": "kimchi", "to": "Kimchi"}],
+        "redirects": [{"from": "Kimchi", "to": "Kimjang"}],
+        "pages": {
+            "1": {"title": "Mount Fuji"},
+            "2": {"title": "Kimjang"},
+            "3": {"title": "Petra"},
+            "-1": {"title": "No Such Article Anywhere", "missing": ""},
+        }}}
+    asked = ["mount fuji", "kimchi", "Petra", "No Such Article Anywhere"]
+    got = bd.resolve_titles_from_response(body, asked)
+    check(got.get("mount fuji") == "Mount Fuji",
+          "a differently spelled title resolves to the real one", str(got))
+    # Two hops: normalised, then followed to where the article actually lives.
+    check(got.get("kimchi") == "Kimjang",
+          "a redirect is followed to the article it points at", str(got))
+    check(got.get("Petra") == "Petra", "a title that is already right is kept")
+    check("No Such Article Anywhere" not in got,
+          "a title with no article is dropped rather than linked", str(got))
+    check(len(got) == 3, "and nothing else is invented", str(got))
+
+    # A renamed title that points at an article which is itself missing must
+    # not be kept: following the chain is not the same as landing somewhere.
+    body2 = {"query": {"redirects": [{"from": "Old Name", "to": "New Name"}],
+                       "pages": {"-1": {"title": "New Name", "missing": ""}}}}
+    check(bd.resolve_titles_from_response(body2, ["Old Name"]) == {},
+          "a redirect to a missing article is not a link")
+    # A redirect loop must terminate rather than spin.
+    body3 = {"query": {"redirects": [{"from": "A", "to": "B"},
+                                     {"from": "B", "to": "A"}],
+                       "pages": {"1": {"title": "C"}}}}
+    check(bd.resolve_titles_from_response(body3, ["A"]) == {},
+          "a circular redirect resolves to nothing instead of hanging")
+    check(bd.resolve_titles_from_response({}, ["Petra"]) == {},
+          "an empty response yields no links")
+
     print("\n== canon_title ==")
     check(bd.canon_title("Mount_Fuji") == bd.canon_title("mount fuji"),
           "titles match across underscores and case")

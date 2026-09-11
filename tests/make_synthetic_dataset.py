@@ -85,6 +85,19 @@ def make(i, kind):
     if kind == "immaterial" and i % 3 == 0:
         others = [c for c in COUNTRIES if c != e["country"]]
         e["countries"] = [e["country"]] + random.sample(others, 2)
+    # Where an entry can send a player, in the proportions the real dataset
+    # has them: every site carries a number on the official list, most
+    # traditions have an official element page, and the rest have only a
+    # checked encyclopaedia article -- or, for a few, nothing at all. Without
+    # these the panel only ever showed its video row and neither branch of the
+    # link logic was exercised.
+    if kind == "material":
+        e["siteId"] = 100 + i
+    elif i % 4:
+        e["officialUrl"] = f"https://example.invalid/element/{i}"
+    elif i % 8 == 0:
+        e["wiki"] = {"en": f"Tradition {i}", "fr": f"Tradition {i} (fr)"}
+
     # Every entry has a photograph, because the real pipeline drops the ones
     # that do not: a round with no picture is not a round. A synthetic set that
     # breaks that invariant makes tests pass or fail by which entry the day
