@@ -776,7 +776,14 @@ def wikipedia_images(titles_by_lang):
                     "titles": "|".join(batch), "format": "json",
                 }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
                 r.raise_for_status()
-                for page in r.json().get("query", {}).get("pages", {}).values():
+                body = r.json()
+                if "error" in body:
+                    # A rejected parameter comes back as HTTP 200 with an error
+                    # object and no results at all, which is indistinguishable
+                    # from an article with no picture unless it is reported.
+                    print(f"    {lang}: API error — "
+                          f"{body['error'].get('code')}: {body['error'].get('info')}")
+                for page in body.get("query", {}).get("pages", {}).values():
                     src = (page.get("original") or {}).get("source")
                     title = page.get("title")
                     if not src or not title:
@@ -788,8 +795,10 @@ def wikipedia_images(titles_by_lang):
                         # for on underscores, case and redirects, and an exact
                         # match therefore missed nearly every article.
                         out[(lang, canon_title(title))] = name
-            except (requests.RequestException, ValueError, KeyError):
-                pass
+            except (requests.RequestException, ValueError, KeyError) as err:
+                # Swallowing this is how a fallback that never worked looked
+                # like one that simply found nothing.
+                print(f"    {lang}: batch failed — {type(err).__name__}: {err}")
             time.sleep(COMMONS_DELAY)
     return out
 
