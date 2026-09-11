@@ -744,6 +744,11 @@ def commons_imageinfo_many(filenames):
     return out
 
 
+def canon_title(t):
+    """Wikipedia titles differ on case, underscores and redirects."""
+    return (t or "").replace("_", " ").strip().lower()
+
+
 def wikipedia_images(titles_by_lang):
     """Lead images for Wikipedia articles, batched by language.
 
@@ -778,7 +783,11 @@ def wikipedia_images(titles_by_lang):
                         continue
                     name = unquote(src.rsplit("/", 1)[-1]).replace("_", " ")
                     if is_photo(name):
-                        out[(lang, title)] = name
+                        # Keyed on a canonical form: the API answers with the
+                        # normalised title, which differs from the one asked
+                        # for on underscores, case and redirects, and an exact
+                        # match therefore missed nearly every article.
+                        out[(lang, canon_title(title))] = name
             except (requests.RequestException, ValueError, KeyError):
                 pass
             time.sleep(COMMONS_DELAY)
@@ -873,10 +882,11 @@ def resolve_photos(dataset, all_items):
         print(f"  {len(bare)} entries still have nothing; trying "
               f"{sum(len(v) for v in by_lang.values())} Wikipedia articles")
         leads = wikipedia_images(by_lang)
+        print(f"  {len(leads)} of those articles had a lead photograph")
         found = 0
         for entry in bare:
             for lang, title in all_items[entry["qid"]].get("wiki", []):
-                name = leads.get((lang, title))
+                name = leads.get((lang, canon_title(title)))
                 if name:
                     entry["_photo_names"].append(name)
                     wanted[name] = None
