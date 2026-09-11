@@ -81,6 +81,26 @@ def play_day(page, base, day, width, label):
         check(needle in page.locator("#tagline").inner_text().lower(),
               f"{label}: {code.upper()} renders")
 
+    # ---- a guess must report its verdict without scrolling ----
+    # The verdict used to live only in the history list below the map, so on a
+    # phone a guess looked like it had done nothing.
+    wrong_first = page.evaluate("""
+      () => COUNTRIES.find(c => c.names.en !== targets[0].country.en).id
+    """)
+    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", wrong_first)
+    page.wait_for_timeout(700)      # the panel is scrolled into view smoothly
+    readout = page.locator("#mapReadout")
+    check("last-guess" in (readout.get_attribute("class") or ""),
+          f"{label}: the guess verdict is shown under the map")
+    check(readout.locator(".hist-tag").count() == 2,
+          f"{label}: continent and region are marked on it",
+          str(readout.locator(".hist-tag").count()))
+    rbox, vh = readout.bounding_box(), page.viewport_size["height"]
+    # Wholly on screen and not flush against the bottom edge.
+    check(bool(rbox) and rbox["y"] >= 0 and rbox["y"] + rbox["height"] <= vh - 8,
+          f"{label}: the verdict is on screen without scrolling",
+          f"bottom={rbox and round(rbox['y'] + rbox['height'])} vh={vh}")
+
     # ---- round 1: win ----
     page.evaluate("submitGuess(targetCountry())")
     page.wait_for_timeout(250)
@@ -113,6 +133,11 @@ def play_day(page, base, day, width, label):
 
     # ---- final screen: 1 win / 1 loss / 1 solved ----
     check(not page.locator("#finalResult").is_hidden(), f"{label}: final screen shown")
+    # The badge row is emptied on this screen; an empty bordered pill used to
+    # draw a small box above the summary.
+    check(page.locator(".meta-row").is_hidden() or
+          (page.locator(".meta-row").bounding_box() or {}).get("height", 0) == 0,
+          f"{label}: no empty badge box above the summary")
     grid = page.locator("#finalResult .share-grid").inner_text()
     check("—" in grid or len(grid.strip()) > 0, f"{label}: share grid rendered", repr(grid))
     check(grid.count("\n") == 2, f"{label}: share grid has one line per round", repr(grid))

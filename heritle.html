@@ -44,6 +44,9 @@
   .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
     font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink-dim);}
   .mode-badge{border:1px solid var(--gold-dim);border-radius:4px;padding:3px 8px;color:var(--gold);}
+  /* The badges are emptied rather than removed when a screen does not want
+     them, and an empty bordered pill still draws a small box. */
+  .mode-badge:empty{border:none;padding:0;}
   .score-badge{color:var(--cream);}
 
   .photo-box{
@@ -89,8 +92,23 @@
   .map-zoom button:active{background:rgba(201,162,75,0.22);}
   @media (pointer: coarse){ .map-zoom button{width:40px;height:40px;} }
   #mapSvg{width:100%;height:auto;display:block;}
-  .map-readout{margin-top:8px;font-size:0.82rem;color:var(--ink-dim);text-align:center;}
+  /* scroll-margin keeps the panel clear of the bottom edge when a guess
+     scrolls it into view, instead of landing flush against it. */
+  .map-readout{margin-top:8px;font-size:0.82rem;color:var(--ink-dim);text-align:center;
+    scroll-margin-bottom:26px;}
   .map-readout b{color:var(--cream);font-weight:500;}
+  /* The verdict on the guess just made. It used to live only in the history
+     list below the fold, so a player had to scroll to find out what their
+     guess had done. */
+  .map-readout.last-guess{display:flex;flex-direction:column;align-items:center;gap:6px;
+    margin-top:10px;padding:9px 10px;background:var(--navy-2);
+    border:1px solid var(--gold-dim);border-left:4px solid var(--lg-accent,var(--gold-dim));
+    border-radius:8px;}
+  .map-readout .lg-head{display:flex;align-items:center;gap:7px;font-size:0.88rem;color:var(--ink);}
+  .map-readout .lg-head .hist-dot{flex:none;}
+  /* Wrapped so the distance and its bearing stay on one line: in a column
+     flex container a bare text node becomes a flex item of its own. */
+  .map-readout .lg-dist{display:block;}
 
   .guess-row{position:relative;margin-bottom:12px;}
   #guessInput{width:100%;background:var(--navy-3);border:1px solid var(--gold-dim);border-radius:8px;
@@ -438,7 +456,7 @@ const FALLBACK_DATA = [
 const UI = {
   en:{ tagline:'three heritage guesses a day, scored out of 100', placeholder:'Type a country…',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
-       readoutStart:'Make your first guess', readout:(km,dir)=>`Closest guess: <b>${km} km</b> ${dir}`,
+       readoutStart:'Make your first guess', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n)=>`${n} / 6 guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
        win:'Found it', winSub:(n)=>`Solved in ${n} guess${n===1?'':'es'}.`, lose:'Round over',
        loseSub:'The answer was:', nextRound:'Next round', learnMore:'Learn more',
@@ -480,7 +498,7 @@ const UI = {
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
   fr:{ tagline:'trois devinettes patrimoniales par jour, notées sur 100', placeholder:'Entrez un pays…',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
-       readoutStart:'Faites votre première proposition', readout:(km,dir)=>`Proposition la plus proche : <b>${km} km</b> ${dir}`,
+       readoutStart:'Faites votre première proposition', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n)=>`${n} / 6 essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
        win:'Trouvé', winSub:(n)=>`Résolu en ${n} essai${n===1?'':'s'}.`, lose:'Manche terminée',
        loseSub:'La réponse était :', nextRound:'Manche suivante', learnMore:'En savoir plus',
@@ -522,7 +540,7 @@ const UI = {
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
   es:{ tagline:'tres adivinanzas patrimoniales al día, puntuadas sobre 100', placeholder:'Escribe un país…',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
-       readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`Propuesta más cercana: <b>${km} km</b> ${dir}`,
+       readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n)=>`${n} / 6 intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
        win:'Acertado', winSub:(n)=>`Resuelto en ${n} intento${n===1?'':'s'}.`, lose:'Ronda terminada',
        loseSub:'La respuesta era:', nextRound:'Siguiente ronda', learnMore:'Saber más',
@@ -734,6 +752,26 @@ async function loadDataset(){
   }
   computeTargets();
 }
+
+/* ---------- Storage generation ----------
+   The pool changed under players' feet. Early archives were catalogued from a
+   dataset that included tentative-list entries -- candidates, not inscribed
+   heritage -- so a returning player's collection and passport describe things
+   the game no longer contains and no longer awards. Carrying that forward
+   would leave accession numbers nobody can re-earn and archive rows that lead
+   nowhere, so a generation bump clears everything written before the change.
+   Bump this only when stored data genuinely cannot be reconciled: it throws
+   away real play. */
+const STORAGE_GEN = '2';
+const GEN_KEY = 'heritle-gen';
+try{
+  if(localStorage.getItem(GEN_KEY) !== STORAGE_GEN){
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('heritle-') && k !== GEN_KEY)
+      .forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(GEN_KEY, STORAGE_GEN);
+  }
+}catch(e){ /* private mode: nothing was stored, so nothing needs clearing */ }
 
 /* ---------- State ---------- */
 const STORAGE_KEY = `heritle-${dayIndex}`;
@@ -1006,6 +1044,7 @@ function render(){
   if(state.round >= 3){ renderFinal(); return; }
 
   const target = currentTarget();
+  document.querySelector('.meta-row').style.display = '';   // renderFinal hides it
   document.getElementById('modeBadge').textContent = target.type==='material' ? T.modeMaterial : T.modeImmaterial;
   document.getElementById('scoreBadge').textContent = `Σ ${totalScore()} / 100`;
   document.getElementById('guessCounter').textContent = T.guessCount(currentGuesses().length);
@@ -1100,8 +1139,31 @@ function renderMapForRound(){
     (state.bonusOpen && roundFinished()) ? 'crosshair' : '';
   const T = t();
   const readout = document.getElementById('mapReadout');
-  if(!currentGuesses().length){ readout.textContent = T.readoutStart; }
-  else{ const last = currentGuesses()[currentGuesses().length-1]; readout.innerHTML = T.readout(last.km, dirLabel(last.bearing)); }
+  const gs = currentGuesses();
+  if(!gs.length){
+    readout.className = 'map-readout';
+    readout.style.removeProperty('--lg-accent');
+    readout.textContent = T.readoutStart;
+  } else {
+    // Same verdict the history row carries, restated where it cannot be
+    // missed: which country, how far off, and whether the continent and
+    // region were right.
+    const last = gs[gs.length-1];
+    const e = COUNTRIES.find(c => c.id === last.id);
+    const tag = (ok, label) =>
+      `<span class="hist-tag ${ok ? 'ok' : 'no'}">${ok ? '\u2713' : '\u2717'} ${label}</span>`;
+    const tags = last.contOk === undefined ? '' :
+      `<span class="hist-tags">${tag(last.contOk, T.clueLabels[0])}${tag(last.regionOk, T.clueLabels[3])}</span>`;
+    readout.className = 'map-readout last-guess';
+    readout.style.setProperty('--lg-accent', heatColorVar[last.bucket]);
+    readout.innerHTML =
+      `<span class="lg-head">
+         <span class="hist-dot" data-glyph="${heatGlyph[last.bucket]||''}" style="background:${heatColorVar[last.bucket]}"></span>
+         <b>${e ? e.names[lang] : ''}</b>
+       </span>
+       <span class="lg-dist">${T.readout(last.km, dirLabel(last.bearing))}</span>
+       ${tags}`;
+  }
 }
 
 function totalScore(){ return Math.round(state.roundScore.reduce((a,b)=>a+b,0)); }
@@ -1149,6 +1211,14 @@ function renderRoundResult(){
   }
   document.getElementById('guessInput').disabled = true;
   document.getElementById('suggestions').style.display='none';
+  // The round is over and the verdict sits below the map; on a phone that is
+  // off-screen, so the round appeared to end with nothing happening.
+  // Keyed to the round: the element is reused, so a plain flag would scroll
+  // once and never again for rounds 2 and 3.
+  if(box.dataset.shown !== String(state.round)){
+    box.dataset.shown = String(state.round);
+    box.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
 }
 
 /* ---------- Region bonus ----------
@@ -1262,6 +1332,9 @@ function renderFinal(){
   checkAchievements();
   document.getElementById('roundsRow').style.display = 'flex';
   document.getElementById('modeBadge').textContent = '';
+  // Hide the row itself: emptying the badges leaves its bottom margin behind,
+  // which reads as a gap above the summary.
+  document.querySelector('.meta-row').style.display = 'none';
   document.getElementById('scoreBadge').textContent = '';
   document.getElementById('photoBox').style.display = 'none';
   document.querySelector('.map-wrap').style.display = 'none';
@@ -1365,6 +1438,13 @@ function submitGuess(country){
   document.getElementById('guessInput').value='';
   document.getElementById('suggestions').style.display='none';
   render();
+  // On a phone the verdict panel sits just below the fold, so a guess looked
+  // like it had done nothing at all. 'nearest' scrolls only when it is
+  // actually off-screen, which leaves the desktop layout alone.
+  if(!roundFinished()){
+    document.getElementById('mapReadout')
+            .scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
 }
 
 /* ---------- Autocomplete ---------- */
