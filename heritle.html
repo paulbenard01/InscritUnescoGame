@@ -233,6 +233,21 @@
   .card .card-name{color:var(--cream);font-size:0.82rem;line-height:1.25;margin-bottom:4px;}
   .card .card-meta{color:var(--ink-dim);font-size:0.68rem;}
   .card.missed{border-style:dashed;}
+  /* The card is a button now, so it has to look touchable and say so. */
+  .card{position:relative;cursor:pointer;text-align:left;}
+  .card:hover .card-more, .card:focus-visible .card-more{color:var(--gold);}
+  .card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .card .card-more{display:block;margin-top:6px;font-family:'JetBrains Mono',monospace;
+    font-size:0.55rem;letter-spacing:0.04em;color:var(--ink-dim);text-transform:uppercase;}
+  /* A star sits over the photograph rather than in the text: it belongs to the
+     card as an object, and the gold says "kept" only when it is. */
+  .card .fav{position:absolute;top:5px;right:5px;z-index:1;width:30px;height:30px;
+    border-radius:50%;border:1px solid rgba(201,162,75,0.3);background:rgba(11,18,36,0.72);
+    color:var(--ink-dim);font-size:0.95rem;line-height:1;padding:0;cursor:pointer;}
+  .card .fav.on{color:var(--gold);border-color:var(--gold-dim);}
+  .fav-hint{color:var(--ink-dim);font-size:0.72rem;text-align:center;margin-top:12px;}
+  .modal-fav{display:block;margin:14px auto 0;}
+  .modal-fav.on{color:var(--gold);border-color:var(--gold-dim);}
   /* Must follow the base .card rules above: same specificity, so source order
      decides. One column at phone width made every card a full-width tower, so
      the card becomes a row with the photo alongside the label. */
@@ -411,6 +426,7 @@
       <span class="label" id="modalVideoLabel"></span>
       <div class="modal-links" id="modalLinks"></div>
     </div>
+    <button class="btn secondary modal-fav" id="modalFav" hidden></button>
     <button class="btn secondary modal-close" id="modalClose"></button>
   </div>
 </div>
@@ -530,6 +546,10 @@ const UI = {
        unknown:'Unknown',
        navGame:'Today', navCollection:'Collection', navPassport:'Passport', navArchive:'Archive',
        collectionTitle:'My Collection', collectionSub:(n)=>`${n} entries catalogued`,
+       collectionRest:'Everything else', favTitle:'Favourites',
+       favSub:(n)=>`${n} kept on the shelf`, favAdd:'Favourite', favRemove:'Favourited',
+       favHint:'Tap ☆ on a card to keep it on a shelf of its own.',
+       cardMore:'Tap to learn more',
        collectionEmpty:'Nothing catalogued yet. Finish a round and the entry is accessioned here.',
        passportTitle:'Passport', passportSub:'Your record of inscriptions visited',
        statPlayed:'Days', statStreak:'Streak', statBest:'Best', statAvg:'Avg score',
@@ -556,7 +576,7 @@ const UI = {
        pointsPartial:(p,max,c,km)=>`Your last guess, <b>${c}</b>, was ${km} km away — <b>${p}</b> of ${max} points.`,
        seeResult:'See result', shareBtn:'Copy result',
        shareNote:'Share your result with friends — it copies the grid, not the answers.', photoOf:(i,n)=>`photo ${i} of ${n}`, bonusBadge:'BONUS ROUND',
-       bonusIntro:'Bonus round — a living tradition, and one guess only.',
+       bonusIntro:'Bonus round — a living tradition. Three guesses, worth half the day.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
        learnLabel:'Learn more', linkWiki:'Wikipedia', linkData:'Data page',
@@ -578,6 +598,10 @@ const UI = {
        unknown:'Inconnu',
        navGame:'Aujourd’hui', navCollection:'Collection', navPassport:'Passeport', navArchive:'Archives',
        collectionTitle:'Ma collection', collectionSub:(n)=>`${n} entrées cataloguées`,
+       collectionRest:'Tout le reste', favTitle:'Favoris',
+       favSub:(n)=>`${n} gardés en réserve`, favAdd:'Ajouter aux favoris', favRemove:'En favoris',
+       favHint:'Touchez ☆ sur une fiche pour la garder dans une réserve à part.',
+       cardMore:'Touchez pour en savoir plus',
        collectionEmpty:'Rien encore catalogué. Terminez une manche et l’entrée sera inventoriée ici.',
        passportTitle:'Passeport', passportSub:'Votre registre d’inscriptions visitées',
        statPlayed:'Jours', statStreak:'Série', statBest:'Record', statAvg:'Score moyen',
@@ -604,7 +628,7 @@ const UI = {
        pointsPartial:(p,max,c,km)=>`Votre dernière proposition, <b>${c}</b>, était à ${km} km — <b>${p}</b> points sur ${max}.`,
        seeResult:'Voir le résultat', shareBtn:'Copier le résultat',
        shareNote:'Partagez votre résultat — la grille est copiée, pas les réponses.', photoOf:(i,n)=>`photo ${i} sur ${n}`, bonusBadge:'MANCHE BONUS',
-       bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
+       bonusIntro:'Manche bonus — une tradition vivante. Trois essais, la moitié de la journée en jeu.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
        learnLabel:'En savoir plus', linkWiki:'Wikipédia', linkData:'Fiche de données',
@@ -626,6 +650,10 @@ const UI = {
        unknown:'Desconocido',
        navGame:'Hoy', navCollection:'Colección', navPassport:'Pasaporte', navArchive:'Archivo',
        collectionTitle:'Mi colección', collectionSub:(n)=>`${n} entradas catalogadas`,
+       collectionRest:'Todo lo demás', favTitle:'Favoritos',
+       favSub:(n)=>`${n} guardados en la vitrina`, favAdd:'Añadir a favoritos', favRemove:'En favoritos',
+       favHint:'Toca ☆ en una ficha para guardarla en una vitrina aparte.',
+       cardMore:'Toca para saber más',
        collectionEmpty:'Nada catalogado todavía. Termina una ronda y la entrada se registrará aquí.',
        passportTitle:'Pasaporte', passportSub:'Tu registro de inscripciones visitadas',
        statPlayed:'Días', statStreak:'Racha', statBest:'Récord', statAvg:'Puntuación media',
@@ -652,7 +680,7 @@ const UI = {
        pointsPartial:(p,max,c,km)=>`Tu última propuesta, <b>${c}</b>, estaba a ${km} km — <b>${p}</b> de ${max} puntos.`,
        seeResult:'Ver resultado', shareBtn:'Copiar resultado',
        shareNote:'Comparte tu resultado — se copia la cuadrícula, no las respuestas.', photoOf:(i,n)=>`foto ${i} de ${n}`, bonusBadge:'RONDA BONUS',
-       bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
+       bonusIntro:'Ronda bonus — una tradición viva. Tres intentos, la mitad de la jornada en juego.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        learnLabel:'Saber más', linkWiki:'Wikipedia', linkData:'Ficha de datos',
@@ -800,14 +828,17 @@ function pickForDay(pool, tier){
 /* Each day: three World Heritage sites, ramping from widely recognised to
    hidden gem, then one intangible element as a bonus round.
 
-   The bonus round gets a single guess, so it is drawn from tier 1 -- there is
-   no room to narrow it down, and a hidden-gem tradition on one guess is a
-   coin toss rather than a puzzle. */
+   The bonus round had a single guess, and a single guess is not a round: a
+   tradition is far harder to place than a building -- no architecture, no
+   vegetation, no signage -- so one try meant it was lost by default rather
+   than played. Three guesses, like the rest, and the ladder of photographs
+   that comes with them. It stays drawn from tier 1 and keeps its own scoring:
+   only the last guess counts, so the earlier two buy information. */
 const ROUND_PLAN = [
   { type: 'material',   tier: 1, guesses: 3, points: 100/3 },
   { type: 'material',   tier: 2, guesses: 3, points: 100/3 },
   { type: 'material',   tier: 3, guesses: 3, points: 100/3 },
-  { type: 'immaterial', tier: 1, guesses: 1, points: 50, bonus: true }
+  { type: 'immaterial', tier: 1, guesses: 3, points: 50, bonus: true }
 ];
 const N_ROUNDS = ROUND_PLAN.length;
 const MAX_SCORE = Math.round(ROUND_PLAN.reduce((a, r) => a + r.points, 0));
@@ -971,13 +1002,28 @@ function loadProfile(){
     days:       p.days && typeof p.days === 'object' ? p.days : {},
     achievements: Array.isArray(p.achievements) ? p.achievements : [],
     seenFieldNotes: !!p.seenFieldNotes,
-    colorblind: !!p.colorblind
+    colorblind: !!p.colorblind,
+    favourites: p.favourites && typeof p.favourites === 'object' ? p.favourites : {}
   };
 }
 let profile = loadProfile();
 function saveProfile(){
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }
   catch(e){ /* private mode: the game still plays, it just won't remember */ }
+}
+
+function isFavourite(id){ return !!profile.favourites[id]; }
+function toggleFavourite(id){
+  if(profile.favourites[id]) delete profile.favourites[id];
+  else profile.favourites[id] = Date.now();   // kept, so the shelf can be ordered
+  saveProfile();
+}
+
+/* The live entry behind a catalogue record, when the dataset still has it.
+   Preferred because it carries the description and every link field without
+   the profile having to store a copy of them. */
+function liveEntry(rec){
+  return POOL.find(e => e.id === rec.id) || rec;
 }
 
 /* Museum-style accession number: HTL.<year>.<sequence within that year>. */
@@ -1003,7 +1049,12 @@ function catalogue(entry, solved){
     type: entry.type, year: entry.year,
     image: entry.image ? { url: entry.image.url, path: entry.image.path,
                            credit: entry.image.credit, license: entry.image.license } : null,
-    continent: entry.continentCode || contCodeOf(entry)
+    continent: entry.continentCode || contCodeOf(entry),
+    // What the links are built from, so a catalogued entry stays readable even
+    // if a later dataset no longer carries it. The description is not copied:
+    // it is long, and it is read off the live entry when there is one.
+    qid: entry.qid, wiki: entry.wiki, siteId: entry.siteId,
+    officialUrl: entry.officialUrl
   };
   saveProfile();
 }
@@ -1816,15 +1867,36 @@ function learnLinks(entry){
   return out;
 }
 
-function openInfoModal(entry){
+function openInfoModal(entry, rec){
   const T = t();
-  document.getElementById('modalTitle').textContent = entry.names[lang];
+  // country and category are {en,fr,es} on a live entry, but an old catalogue
+  // record may carry a plain string.
+  const pick = v => !v ? '' : (typeof v === 'string' ? v : (v[lang] || v.en || ''));
+  const names = entry.names || {};
+  document.getElementById('modalTitle').textContent =
+    names[lang] || names.en || entry.id;
   document.getElementById('modalSub').textContent =
-    [entry.country[lang], entry.category[lang], entry.year].filter(Boolean).join(' · ');
+    [pick(entry.country), pick(entry.category), entry.year].filter(Boolean).join(' · ');
   document.getElementById('modalDesc').textContent = (entry.clue && entry.clue[lang]) || '';
   document.getElementById('modalVideoLabel').textContent = T.learnLabel;
   document.getElementById('modalLinks').innerHTML = learnLinks(entry).join('');
   document.getElementById('modalClose').textContent = T.close;
+  // Favouriting is offered wherever the entry is -- including the day it was
+  // met, which is the moment a player actually wants to keep it.
+  const star = document.getElementById('modalFav');
+  const id = (rec && rec.id) || entry.id;
+  const known = !!profile.collection[id];
+  star.hidden = !known;
+  if(known){
+    const on = isFavourite(id);
+    star.textContent = (on ? '★ ' : '☆ ') + (on ? T.favRemove : T.favAdd);
+    star.classList.toggle('on', on);
+    star.onclick = ()=>{
+      toggleFavourite(id);
+      openInfoModal(entry, rec);
+      if(document.getElementById('viewCollection').offsetParent) renderCollection();
+    };
+  }
   document.getElementById('modalBackdrop').classList.add('open');
 }
 document.getElementById('modalClose').addEventListener('click', ()=> document.getElementById('modalBackdrop').classList.remove('open'));
@@ -2002,6 +2074,32 @@ function showView(id){
   if(id==='Archive')    renderArchive();
 }
 
+/* One catalogue card. Clickable, because the card is the only place a player
+   can go back to something they met in a round -- everything a finished round
+   offers about an entry is offered here too. The star is a button of its own so
+   favouriting does not open the card. */
+function collectionCard(r){
+  const T = t();
+  const src = (r.image && (r.image.path || r.image.url)) || '';
+  // Both are {en,fr,es}; tolerate a plain string from an older profile.
+  const pick = v => !v ? '' : (typeof v === 'string' ? v : (v[lang] || v.en || ''));
+  const fav = isFavourite(r.id);
+  return `<div class="card${r.solved ? '' : ' missed'}" data-id="${r.id}"
+               role="button" tabindex="0">
+    ${src ? `<img src="${src}" alt="" loading="lazy"
+              onerror="this.style.display='none'">` : ''}
+    <button class="fav${fav ? ' on' : ''}" data-fav="${r.id}"
+            title="${fav ? T.favRemove : T.favAdd}"
+            aria-label="${fav ? T.favRemove : T.favAdd}">${fav ? '★' : '☆'}</button>
+    <div class="card-body">
+      <span class="acc">${accessionFor(r.id)}</span>
+      <div class="card-name">${(r.names && r.names[lang]) || r.id}</div>
+      <div class="card-meta">${[pick(r.country), pick(r.category), r.year]
+                               .filter(Boolean).join(' · ')}</div>
+      <span class="card-more">${T.cardMore}</span>
+    </div></div>`;
+}
+
 function renderCollection(){
   const T = t();
   const items = Object.values(profile.collection).sort((a,b)=> b.day - a.day);
@@ -2011,23 +2109,39 @@ function renderCollection(){
       <p>${T.collectionEmpty}</p></div>`;
     return;
   }
-  const cards = items.map(r=>{
-    const src = (r.image && (r.image.path || r.image.url)) || '';
-    // Both are {en,fr,es}; tolerate a plain string from an older profile.
-    const pick = v => !v ? '' : (typeof v === 'string' ? v : (v[lang] || v.en || ''));
-    const country = pick(r.country);
-    const cat = pick(r.category);
-    return `<div class="card${r.solved ? '' : ' missed'}">
-      ${src ? `<img src="${src}" alt="" loading="lazy"
-                onerror="this.style.display='none'">` : ''}
-      <div class="card-body">
-        <span class="acc">${accessionFor(r.id)}</span>
-        <div class="card-name">${(r.names && r.names[lang]) || r.id}</div>
-        <div class="card-meta">${[country, cat, r.year].filter(Boolean).join(' · ')}</div>
-      </div></div>`;
-  }).join('');
-  box.innerHTML = `<div class="panel-head"><h2>${T.collectionTitle}</h2>
-    <p>${T.collectionSub(items.length)}</p></div><div class="cards">${cards}</div>`;
+  // Favourites first and in the order they were starred: a shelf the player
+  // arranged themselves, not another view of the same list.
+  const favs = items.filter(r => isFavourite(r.id))
+                    .sort((a,b)=> profile.favourites[b.id] - profile.favourites[a.id]);
+  const rest = items.filter(r => !isFavourite(r.id));
+  const section = (title, sub, list) =>
+    `<div class="panel-head"><h2>${title}</h2><p>${sub}</p></div>
+     <div class="cards">${list.map(collectionCard).join('')}</div>`;
+
+  box.innerHTML =
+    (favs.length ? section(T.favTitle, T.favSub(favs.length), favs) : '') +
+    section(favs.length ? T.collectionRest : T.collectionTitle,
+            favs.length ? T.collectionSub(items.length) : T.collectionSub(items.length),
+            rest) +
+    (favs.length ? '' : `<p class="fav-hint">${T.favHint}</p>`);
+
+  box.querySelectorAll('[data-fav]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();                 // starring is not opening
+      toggleFavourite(btn.dataset.fav);
+      renderCollection();
+    });
+  });
+  const open = el=>{
+    const rec = profile.collection[el.dataset.id];
+    if(rec) openInfoModal(liveEntry(rec), rec);
+  };
+  box.querySelectorAll('.card[data-id]').forEach(card=>{
+    card.addEventListener('click', ()=> open(card));
+    card.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(card); }
+    });
+  });
 }
 
 function renderPassport(){
