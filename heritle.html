@@ -437,12 +437,13 @@
 <body>
 <div class="page">
   <header>
-    <!-- The mark is a button because it does something: it spins. The image
-         falls back to the generated mark if the uploaded one is missing, so a
-         wrong filename costs a different logo, never a broken-image icon. -->
+    <!-- The mark is a button because it does something: it spins. If the file
+         is missing or misnamed the image hides itself, so the header falls back
+         to the wordmark alone rather than showing a broken-image icon. See
+         assets/README.md -- capitalisation is part of the filename on Pages. -->
     <button class="mark" id="mark" aria-label="Heritle">
       <img src="assets/Heritlelogogold.svg" alt=""
-           onerror="this.onerror=null;this.src='assets/logo-gold.svg'">
+           onerror="this.closest('.mark').hidden = true">
     </button>
     <div class="wordmark">Heritle</div>
     <div class="pitch" id="pitch"></div>
