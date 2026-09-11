@@ -85,16 +85,22 @@ def make(i, kind):
     if kind == "immaterial" and i % 3 == 0:
         others = [c for c in COUNTRIES if c != e["country"]]
         e["countries"] = [e["country"]] + random.sample(others, 2)
-    if i % 4:
-        e["image"] = {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}.jpg",
-                      "license": "CC BY-SA 4.0", "credit": f"Photographer {i}"}
-        # Most entries carry several photos, revealed one per wrong guess.
-        # Without some here the reveal path would never run in a test.
-        if i % 3:
-            e["photos"] = [e["image"]] + [
-                {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}-{k}.jpg",
-                 "license": "CC BY-SA 4.0", "credit": f"Photographer {i}-{k}"}
-                for k in (2, 3)]
+    # Every entry has a photograph, because the real pipeline drops the ones
+    # that do not: a round with no picture is not a round. A synthetic set that
+    # breaks that invariant makes tests pass or fail by which entry the day
+    # happened to draw -- which is exactly how a gallery check failed once.
+    e["image"] = {"path": f"images/{kind[:3]}-{i}.jpg", "file": f"F{i}.jpg",
+                  "license": "CC BY-SA 4.0", "credit": f"Photographer {i}"}
+    # Most entries carry several, revealed one per wrong guess. Not all: the
+    # single-photograph path has to be exercised too.
+    if i % 3:
+        # Distinct paths, not one path under three names: paging through a
+        # gallery has to actually change the picture, and a fixture where every
+        # photograph resolves to the same file cannot show that it does.
+        e["photos"] = [e["image"]] + [
+            {"path": f"images/{kind[:3]}-{i}-{k}.jpg", "file": f"F{i}-{k}.jpg",
+             "license": "CC BY-SA 4.0", "credit": f"Photographer {i}-{k}"}
+            for k in (2, 3)]
     return e
 
 entries = [make(i, "material") for i in range(N_MAT)] + [make(i, "immaterial") for i in range(N_IMM)]
@@ -142,8 +148,10 @@ img_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(out))), "
 os.makedirs(img_dir, exist_ok=True)
 written = 0
 for e in entries:
-    if "image" in e:
-        with open(os.path.join(img_dir, f"{e['id']}.jpg"), "wb") as f:
+    # One file per photograph, at the path the entry actually points at.
+    for shot in (e.get("photos") or ([e["image"]] if "image" in e else [])):
+        name = os.path.basename(shot["path"])
+        with open(os.path.join(img_dir, name), "wb") as f:
             f.write(SAMPLE_JPEG)
         written += 1
 print(f"wrote {written} placeholder JPEGs to {img_dir}")

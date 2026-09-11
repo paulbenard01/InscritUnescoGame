@@ -482,6 +482,13 @@ def main():
         page.wait_for_timeout(300)
         check("open" in (page.locator("#modalBackdrop").get_attribute("class") or ""),
               "a collection card opens its entry")
+        # The photographs come first: a card is a drawer of plates, not a
+        # caption. And the credits are owed in full here -- the answer is known.
+        check(not page.locator("#gal").is_hidden(), "the entry opens on its photographs")
+        check(bool(page.evaluate("document.getElementById('galImg').src")),
+              "the gallery has a photograph in it")
+        check(page.locator("#galCredit").inner_text().strip() != "",
+              "the photograph is credited where nothing is left to spoil")
         links = page.locator("#modalLinks .learn-link").count()
         check(links >= 1, "the card's entry offers somewhere to learn more",
               str(links))
@@ -489,6 +496,16 @@ def main():
             "els => els.map(e => e.href)")
         check(all(h.startswith("https://") for h in hrefs),
               "every link resolves to a real address", str(hrefs))
+        # Rows of equal width, or they read as leftovers rather than a list.
+        widths = page.locator("#modalLinks .learn-link").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().width))")
+        check(len(set(widths)) == 1, "the links line up as rows of one width",
+              str(widths))
+        labels = page.locator("#modalLinks .ll-text").all_inner_texts()
+        check(any(l.lower().startswith("discover videos about") for l in labels),
+              "the video row is named after the place", str(labels))
+        check(labels[-1].lower().startswith("discover videos about"),
+              "and comes last, under the reading links", str(labels))
         # Favouriting from the card that is already open.
         page.locator("#modalFav").click(); page.wait_for_timeout(200)
         page.evaluate("document.getElementById('modalClose').click()")
@@ -501,6 +518,33 @@ def main():
               "favourites get a shelf of their own, first", str(heads))
         check(page.locator("#viewCollection .card .fav.on").count() == 1,
               "and the starred card shows as kept")
+        # Paging, staged on an entry that certainly has several photographs
+        # rather than on whichever one the day happened to catalogue. Last,
+        # because this entry need not be in the collection -- and on one that
+        # is not, the star is rightly hidden.
+        page.evaluate("""
+          () => { const e = POOL.find(d => (d.photos || []).length > 1);
+                  if(e) openInfoModal(e, profile.collection[e.id]); }
+        """)
+        page.wait_for_timeout(200)
+        shots = page.evaluate("galleryShots.length")
+        check(shots > 1, "an entry with several photographs opens with them all",
+              str(shots))
+        if shots > 1:
+            first = page.evaluate("document.getElementById('galImg').src")
+            page.locator("#galNext").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") != first,
+                  "the gallery pages to the next photograph")
+            check(page.locator("#galDots i.on").count() == 1,
+                  "exactly one dot marks where you are")
+            page.locator("#galPrev").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") == first,
+                  "and back again")
+        check(page.locator("#modalFav").is_hidden(),
+              "an entry not in the collection offers no star to keep it by")
+        page.evaluate("document.getElementById('modalClose').click()")
+        page.wait_for_timeout(200)
+
         # Starring must not open the card -- it is a button of its own.
         page.evaluate("document.getElementById('modalBackdrop').classList.remove('open')")
         page.locator("#viewCollection .card .fav").first.click()
