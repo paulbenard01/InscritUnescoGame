@@ -1523,7 +1523,8 @@ function renderMapForRound(){
   if(!gs.length){
     readout.className = 'map-readout';
     readout.style.removeProperty('--lg-accent');
-    // The bonus round allows a single guess. Saying so afterwards is no use.
+    // What the bonus round is worth, and that it has three tries: said
+    // before the first guess, because afterwards it is no use.
     readout.textContent = roundPlan(state.round).bonus ? T.bonusIntro : T.readoutStart;
   } else {
     // Same verdict the history row carries, restated where it cannot be

@@ -95,7 +95,7 @@ def main():
                 check(sorted(p["tier"] for p in plan[:3]) == [1, 2, 3],
                       "difficulty ramps across the three heritage rounds", str(plan))
                 check(plan[3]["tier"] == 1,
-                      "the one-guess bonus round draws a widely known element", str(plan))
+                      "the bonus round draws a widely known element", str(plan))
                 ids = page.evaluate("targets.map(t=>t.id)")
                 check(len(set(ids)) == 4, "four distinct targets", str(ids))
 

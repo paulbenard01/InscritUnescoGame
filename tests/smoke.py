@@ -65,7 +65,7 @@ def tap_guess(page, country_js):
 
 
 def T_BONUS_INTRO_SHOWN(page):
-    """The one-guess rule has to be visible before the guess is spent."""
+    """The bonus round's terms have to be visible before a guess is spent."""
     return page.evaluate("""
       () => document.getElementById('mapReadout').textContent === t().bonusIntro
     """)
