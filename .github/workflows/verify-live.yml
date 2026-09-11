@@ -14,7 +14,12 @@ on:
   workflow_run:
     workflows: ['Deploy to GitHub Pages']
     types: [completed]
+  # main only. This checks the deployed site, so running it from a feature
+  # branch tests main's deployment against the branch's expectations: any
+  # branch that adds a check for something not yet deployed fails by
+  # construction, which says nothing about either.
   push:
+    branches: [main]
     paths:
       - '.github/workflows/verify-live.yml'
       - 'tests/smoke.py'
