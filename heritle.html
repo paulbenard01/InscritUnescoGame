@@ -27,12 +27,20 @@
   }
   button{touch-action:manipulation;}
   .page{width:100%;max-width:480px;}
-  header{text-align:center;margin-bottom:16px;}
+  header{text-align:center;margin-bottom:16px;position:relative;}
   .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--cream);}
   .tagline{color:var(--ink-dim);font-size:0.85rem;margin-top:4px;}
-  .lang-slider{display:inline-flex;margin-top:14px;border:1px solid var(--gold-dim);border-radius:999px;overflow:hidden;}
-  .lang-btn{background:transparent;border:none;color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:0.72rem;padding:6px 13px;cursor:pointer;}
-  .lang-btn.active{background:var(--gold);color:var(--navy);font-weight:500;}
+  /* Demoted deliberately. Gold is the palette's "act on this" colour -- the
+     guess button, the live round, the confirm bar -- and spending it on a
+     setting most players touch once put a preference above the puzzle in the
+     visual order. It is now quiet type, and absolutely positioned so it costs
+     nothing in the vertical budget above the photograph. */
+  .lang-slider{position:absolute;top:0;right:0;display:inline-flex;}
+  .lang-btn{background:transparent;border:none;color:var(--ink-dim);
+    font-family:'JetBrains Mono',monospace;font-size:0.68rem;letter-spacing:0.03em;
+    padding:4px 6px;cursor:pointer;opacity:0.65;}
+  .lang-btn.active{color:var(--cream);opacity:1;text-decoration:underline;
+    text-underline-offset:3px;text-decoration-color:var(--gold-dim);}
 
   .rounds-row{display:flex;justify-content:center;gap:8px;margin:16px 0 10px;}
   .round-pip{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -51,7 +59,10 @@
 
   .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
     font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink-dim);}
-  .mode-badge{border:1px solid var(--gold-dim);border-radius:4px;padding:3px 8px;color:var(--gold);}
+  /* A label saying which pool today's round came from. It answers a question
+     nobody asked mid-guess, so it reads as caption, not as a control. */
+  .mode-badge{border-radius:4px;padding:3px 0;color:var(--ink-dim);
+    letter-spacing:0.06em;}
   /* The badges are emptied rather than removed when a screen does not want
      them, and an empty bordered pill still draws a small box. */
   .mode-badge:empty{border:none;padding:0;}
@@ -101,9 +112,11 @@
   #mapSvg{touch-action:none;}
   .map-zoom{position:absolute;top:20px;right:20px;display:flex;flex-direction:column;gap:5px;z-index:2;}
   .map-zoom button{width:34px;height:34px;border-radius:7px;background:rgba(19,29,52,0.82);
-    border:1px solid var(--gold-dim);color:var(--gold);font-size:1rem;line-height:1;cursor:pointer;
+    border:1px solid rgba(156,166,192,0.35);color:var(--ink-dim);font-size:1rem;line-height:1;cursor:pointer;
     font-family:'JetBrains Mono',monospace;padding:0;}
-  .map-zoom button:active{background:rgba(201,162,75,0.22);}
+  /* Utilities, not the move. On the map gold means your pin and the answer,
+     so the zoom controls sit back until touched. */
+  .map-zoom button:active{background:rgba(201,162,75,0.22);color:var(--gold);}
   @media (pointer: coarse){ .map-zoom button{width:40px;height:40px;} }
   #mapSvg{width:100%;height:auto;display:block;}
   /* scroll-margin keeps the panel clear of the bottom edge when a guess
@@ -179,7 +192,12 @@
   .nav button{background:transparent;border:1px solid transparent;color:var(--ink-dim);
     font-family:'JetBrains Mono',monospace;font-size:0.66rem;letter-spacing:0.04em;
     text-transform:uppercase;padding:8px 10px;border-radius:6px;cursor:pointer;min-height:38px;}
-  .nav button.active{color:var(--gold);border-color:var(--gold-dim);}
+  /* Marked by weight and an underline rather than a gold box. Where you are is
+     orientation, not an action, and a second gold-bordered box beside the live
+     round pip made the two compete for the same meaning. */
+  .nav button.active{color:var(--cream);border-color:transparent;
+    text-decoration:underline;text-underline-offset:5px;
+    text-decoration-color:var(--gold-dim);}
   .view{display:none;} .view.active{display:block;}
 
   .panel-head{text-align:center;margin-bottom:14px;}
@@ -261,12 +279,14 @@
      page on focus and never zoom back, so the guess box goes to 16px exactly;
      controls go to the 44px minimum. Desktop keeps its original sizing. */
   @media (pointer: coarse), (max-width: 560px){
-    .lang-btn{padding:12px 20px;min-height:44px;font-size:0.78rem;}
+    /* Still a 44px target, but the padding is invisible: the control reads
+       small while staying comfortably tappable. */
+    .lang-btn{padding:12px 8px;min-height:44px;font-size:0.72rem;}
     .btn{min-height:44px;padding:12px 20px;}
     .modal-close{min-height:44px;}
   }
   .btn:active{filter:brightness(0.88);}
-  .lang-btn:active{background:rgba(201,162,75,0.2);}
+  .lang-btn:active{color:var(--gold);}
 
   .modal-backdrop{position:fixed;inset:0;background:rgba(10,14,26,0.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:20;}
   .modal-backdrop.open{display:flex;}
@@ -606,7 +626,26 @@ const UI = {
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
 };
-let lang = 'en';
+/* The language a visitor gets, in order of what actually knows best: what they
+   last chose here, then what their browser says, then English.
+
+   This control used to sit in the header's strongest slot wearing the brightest
+   colour in the palette, and the reason was that it had to: nothing detected
+   the language and nothing remembered the choice, so a French speaker reset it
+   on every single visit. Prominence was compensating for a missing feature.
+   With detection and persistence it becomes a rare correction, and can be
+   quiet. */
+const LANG_KEY = 'heritle-lang';
+function initialLang(){
+  try{
+    const saved = localStorage.getItem(LANG_KEY);
+    if(saved && UI[saved]) return saved;
+  }catch(e){ /* private mode */ }
+  const nav = (navigator.languages || [navigator.language || 'en'])
+                .map(l => String(l).slice(0,2).toLowerCase());
+  return nav.find(l => UI[l]) || 'en';
+}
+let lang = initialLang();
 function t(){ return UI[lang]; }
 
 /* ---------- Dataset loading ----------
@@ -842,7 +881,9 @@ const GEN_KEY = 'heritle-gen';
 try{
   if(localStorage.getItem(GEN_KEY) !== STORAGE_GEN){
     Object.keys(localStorage)
-      .filter(k => k.startsWith('heritle-') && k !== GEN_KEY)
+      // The language preference is a UI setting, not game state: a reset of
+      // the archives should not put a French player back into English.
+      .filter(k => k.startsWith('heritle-') && k !== GEN_KEY && k !== LANG_KEY)
       .forEach(k => localStorage.removeItem(k));
     localStorage.setItem(GEN_KEY, STORAGE_GEN);
   }
@@ -1757,6 +1798,7 @@ document.querySelectorAll('.lang-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active'); lang = btn.dataset.lang;
+    try{ localStorage.setItem(LANG_KEY, lang); }catch(e){ /* private mode */ }
     render(); renderNav(); renderCountdown();
     if(currentView !== 'Game') showView(currentView);
   });

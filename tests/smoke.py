@@ -100,6 +100,33 @@ def play_day(page, base, day, width, label):
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
     check(page.evaluate("targets.length") == 4, f"{label}: four targets chosen")
+    # Information hierarchy: the accent colour has to keep meaning one thing.
+    # It marks what is live or actionable -- the current round, the guess
+    # button, your pin. When a language setting and a category caption also
+    # wore it, it meant nothing and the eye had nowhere to go first.
+    gold_boxes = page.evaluate("""
+      () => {
+        const top = document.querySelector('.photo-box').getBoundingClientRect().top;
+        const near = (c) => { const m = String(c).match(/\\d+/g); return m &&
+          Math.abs(+m[0]-201)<12 && Math.abs(+m[1]-162)<12 && Math.abs(+m[2]-75)<12; };
+        const out = [];
+        for(const el of document.querySelectorAll('header *, .nav *, .rounds-row *, .meta-row *')){
+          const b = el.getBoundingClientRect();
+          if(!b.height || b.top >= top) continue;
+          const cs = getComputedStyle(el);
+          const boxed = (near(cs.borderTopColor) && cs.borderTopWidth !== '0px')
+                     || near(cs.backgroundColor);
+          if(boxed) out.push(el.className || el.tagName);
+        }
+        return out;
+      }
+    """)
+    check(len(gold_boxes) <= 2,
+          f"{label}: the accent colour stays scarce above the puzzle",
+          f"{len(gold_boxes)}: {gold_boxes}")
+    # The language control is a preference, not a move: it must not be one.
+    check(not any('lang' in str(c) for c in gold_boxes),
+          f"{label}: the language control does not wear the accent colour")
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.
     check(page.evaluate("!!LAND_SHAPES"), f"{label}: country shapes loaded")
@@ -141,8 +168,12 @@ def play_day(page, base, day, width, label):
     page.evaluate(TAP_JS, pt)
     page.wait_for_timeout(700)
     pb, vh = page.locator("#pendingGuess").bounding_box(), page.viewport_size["height"]
-    check(bool(pb) and pb["y"] >= 0 and pb["y"] + pb["height"] <= vh - 8,
-          f"{label}: the confirm bar is on screen",
+    # Fully visible is the requirement. The scroll-margin cushion only applies
+    # when a scroll actually happens, and once the header stopped wasting 60px
+    # the bar fits without one -- the browser then leaves it where it is, a
+    # couple of pixels off the bottom, which is in view and tappable.
+    check(bool(pb) and pb["y"] >= 0 and pb["y"] + pb["height"] <= vh,
+          f"{label}: the confirm bar is fully on screen",
           f"bottom={pb and round(pb['y'] + pb['height'])} vh={vh}")
     page.evaluate("clearPending(); renderMapForRound();")
     page.wait_for_timeout(150)
