@@ -1,0 +1,54 @@
+name: Find the intangible designation
+
+# Development probe, not part of the game or the deploy. Runs here because
+# Wikidata is unreachable from the development sandbox.
+#
+# Answers one open question: which P1435 value marks intangible heritage
+# elements? The pipeline's original value turned out to be the tentative World
+# Heritage list. Nothing is applied automatically — this reports evidence for a
+# human to confirm.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/find_ich.py'
+      - '.github/workflows/find-ich.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  find:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Probe
+        env:
+          HERITLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          python tools/find_ich.py 2>&1 | tee ich.log
+
+      - name: Report
+        if: always()
+        run: |
+          echo '### Intangible designation probe' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ich.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ich-probe
+          path: ich.log
+          if-no-files-found: warn
