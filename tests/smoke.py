@@ -482,6 +482,24 @@ def main():
         page.wait_for_timeout(300)
         check("open" in (page.locator("#modalBackdrop").get_attribute("class") or ""),
               "a collection card opens its entry")
+        # The photographs come first: a card is a drawer of plates, not a
+        # caption. And the credits are owed in full here -- the answer is known.
+        check(not page.locator("#gal").is_hidden(), "the entry opens on its photographs")
+        check(bool(page.evaluate("document.getElementById('galImg').src")),
+              "the gallery has a photograph in it")
+        check(page.locator("#galCredit").inner_text().strip() != "",
+              "the photograph is credited where nothing is left to spoil")
+        shots = page.evaluate("galleryShots.length")
+        if shots > 1:
+            first = page.evaluate("document.getElementById('galImg').src")
+            page.locator("#galNext").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") != first,
+                  "the gallery pages to the next photograph")
+            check(page.locator("#galDots i.on").count() == 1,
+                  "exactly one dot marks where you are")
+            page.locator("#galPrev").click(); page.wait_for_timeout(150)
+            check(page.evaluate("document.getElementById('galImg').src") == first,
+                  "and back again")
         links = page.locator("#modalLinks .learn-link").count()
         check(links >= 1, "the card's entry offers somewhere to learn more",
               str(links))
@@ -489,6 +507,16 @@ def main():
             "els => els.map(e => e.href)")
         check(all(h.startswith("https://") for h in hrefs),
               "every link resolves to a real address", str(hrefs))
+        # Rows of equal width, or they read as leftovers rather than a list.
+        widths = page.locator("#modalLinks .learn-link").evaluate_all(
+            "els => els.map(e => Math.round(e.getBoundingClientRect().width))")
+        check(len(set(widths)) == 1, "the links line up as rows of one width",
+              str(widths))
+        labels = page.locator("#modalLinks .ll-text").all_inner_texts()
+        check(any(l.lower().startswith("discover videos about") for l in labels),
+              "the video row is named after the place", str(labels))
+        check(labels[-1].lower().startswith("discover videos about"),
+              "and comes last, under the reading links", str(labels))
         # Favouriting from the card that is already open.
         page.locator("#modalFav").click(); page.wait_for_timeout(200)
         page.evaluate("document.getElementById('modalClose').click()")
