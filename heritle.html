@@ -287,14 +287,40 @@
   .stamp.s1{border-color:var(--heat-close);color:var(--heat-close);}
 
   /* ---- achievements ---- */
-  .ach-list{display:flex;flex-direction:column;gap:7px;margin-top:16px;}
-  .ach{display:flex;gap:9px;align-items:flex-start;background:var(--navy-2);border-radius:8px;
-    padding:9px 11px;border:1px solid rgba(201,162,75,0.18);}
-  .ach.locked{opacity:0.45;}
-  .ach .seal{width:26px;height:26px;border-radius:50%;border:1px solid var(--gold-dim);flex:none;
-    display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:0.8rem;}
+  .ach-list{display:flex;flex-direction:column;gap:7px;margin-top:12px;}
+  .ach{display:flex;gap:11px;align-items:center;background:var(--navy-2);border-radius:8px;
+    padding:10px 12px;border:1px solid rgba(201,162,75,0.18);}
+  .ach.locked{border-style:dashed;border-color:rgba(156,166,192,0.22);background:transparent;}
   .ach b{display:block;color:var(--cream);font-size:0.82rem;}
+  .ach.locked b{color:var(--ink-dim);}
   .ach span{color:var(--ink-dim);font-size:0.7rem;}
+  .ach-empty{color:var(--ink-dim);font-size:0.75rem;text-align:center;margin:14px 0 0;}
+
+  /* A stamp, drawn rather than set in type. A glyph in a bordered circle sits
+     wherever its font's metrics put it -- which is never quite the middle, and
+     looks it. This is centred on the geometry, and an earned one is turned a
+     few degrees the way a stamp actually lands on a page. */
+  .stamp-mark{width:42px;height:42px;flex:none;overflow:visible;}
+  .stamp-mark .ring{fill:none;stroke:var(--gold-dim);stroke-width:1.4;}
+  .stamp-mark .ring.outer{stroke-dasharray:3 2.2;}
+  .stamp-mark .stamp-text{fill:var(--gold-dim);text-anchor:middle;
+    font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:0.02em;}
+  .stamp-mark.earned{transform:rotate(-7deg);}
+  .stamp-mark.earned .ring{stroke:var(--gold);stroke-width:1.7;}
+  .stamp-mark.earned .ring.inner{fill:rgba(201,162,75,0.1);}
+  .stamp-mark.earned .stamp-text{fill:var(--gold);}
+
+  /* Out of sight, one tap away: what is left to find is for whoever asks. */
+  .ach-locked{margin-top:14px;}
+  .ach-locked summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+    font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:0.06em;
+    text-transform:uppercase;color:var(--ink-dim);padding:10px 2px;min-height:40px;}
+  .ach-locked summary::-webkit-details-marker{display:none;}
+  .ach-locked summary::before{content:'\25B8';display:inline-block;color:var(--gold-dim);
+    transition:transform 0.15s ease;}
+  .ach-locked[open] summary::before{transform:rotate(90deg);}
+  .ach-locked summary .count{border:1px solid rgba(156,166,192,0.3);border-radius:9px;
+    padding:1px 7px;font-size:0.6rem;}
 
   /* ---- archive list ---- */
   .arch-list{display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow-y:auto;}
@@ -608,7 +634,22 @@ const UI = {
              perfect:['Full marks','A day scored the maximum'],
              hiddengem:['Sharp eye','A hidden gem found on the first guess'],
              flawless:['Clean sweep','Every round of a day solved'],
-             archivist:(n,r)=>[`Archivist ${r}`, `${n} entries catalogued`] },
+             coll:{ 5:['Port of Entry','Five entries catalogued'],
+                    10:['Well Travelled','Ten entries catalogued'],
+                    25:['The Grand Tour','Twenty-five entries catalogued'],
+                    50:['Curator','Fifty entries catalogued'],
+                    100:['Centenary','A hundred entries catalogued'],
+                    365:['Around the Year','Three hundred and sixty-five entries catalogued'] },
+             cont:(n,g)=>[`Discovering ${n}`, `${g} entries catalogued in ${n}`],
+             trad10:['Living Memory','Ten living traditions catalogued'],
+             trad50:['Keeper of Traditions','Fifty living traditions catalogued'],
+             streak7:['Seven Days Running','A week without missing a day'],
+             streak30:['The Long Season','A month without missing a day'],
+             decades:['Time Traveller','Entries inscribed across five decades'],
+             bonus10:['Tradition Hunter','The bonus round solved ten times'] },
+       achEarned:'Earned', achLocked:'Still to find',
+       achLockedNone:'Every distinction earned.',
+       achEmpty:'Nothing stamped yet. Finish a day and the first one lands here.',
        fieldNotesTitle:'Field Notes', fieldNotesBtn:'Begin',
        fieldNotes:['Three inscribed sites a day, then a bonus round on a living tradition. You are shown a photograph, not a name.',
                    'Tap the map where you think it is, then press Guess. Each guess reports its distance and bearing to the site, and whether you have the right continent and region.',
@@ -662,7 +703,22 @@ const UI = {
              perfect:['Note maximale','Une journée au score maximal'],
              hiddengem:['Œil aiguisé','Un trésor caché trouvé du premier coup'],
              flawless:['Sans faute','Toutes les manches d’une journée résolues'],
-             archivist:(n,r)=>[`Archiviste ${r}`, `${n} entrées cataloguées`] },
+             coll:{ 5:['Premier port','Cinq entrées cataloguées'],
+                    10:['Grand voyageur','Dix entrées cataloguées'],
+                    25:['Le grand tour','Vingt-cinq entrées cataloguées'],
+                    50:['Conservateur','Cinquante entrées cataloguées'],
+                    100:['Centenaire','Cent entrées cataloguées'],
+                    365:['Le tour de l’année','Trois cent soixante-cinq entrées cataloguées'] },
+             cont:(n,g)=>[`Découverte : ${n}`, `${g} entrées cataloguées : ${n}`],
+             trad10:['Mémoire vivante','Dix traditions vivantes cataloguées'],
+             trad50:['Gardien des traditions','Cinquante traditions vivantes cataloguées'],
+             streak7:['Sept jours de suite','Une semaine sans manquer un jour'],
+             streak30:['La longue saison','Un mois sans manquer un jour'],
+             decades:['Voyageur du temps','Des entrées inscrites sur cinq décennies'],
+             bonus10:['Chasseur de traditions','La manche bonus résolue dix fois'] },
+       achEarned:'Obtenues', achLocked:'Encore à trouver',
+       achLockedNone:'Toutes les distinctions ont été obtenues.',
+       achEmpty:'Rien d’apposé pour l’instant. Terminez une journée et le premier tampon arrive ici.',
        fieldNotesTitle:'Notes de terrain', fieldNotesBtn:'Commencer',
        fieldNotes:['Trois sites inscrits par jour, puis une manche bonus sur une tradition vivante. On vous montre une photographie, pas un nom.',
                    'Touchez la carte à l’endroit voulu, puis appuyez sur Proposer. Chaque proposition indique sa distance et sa direction, et si le continent et la région sont les bons.',
@@ -714,9 +770,24 @@ const UI = {
        achTitle:'Distinciones',
        ach:{ continents:['Vuelta al mundo','Una entrada catalogada en cada continente'],
              perfect:['Nota máxima','Un día con la puntuación máxima'],
-             hiddengem:['Ojo agudo','Una joya oculta hallada al primer intento'],
-             flawless:['Sin fallos','Todas las rondas de un día resueltas'],
-             archivist:(n,r)=>[`Archivero ${r}`, `${n} entradas catalogadas`] },
+             hiddengem:['Ojo afinado','Una joya escondida acertada al primer intento'],
+             flawless:['Pleno','Todas las rondas de un día resueltas'],
+             coll:{ 5:['Puerto de entrada','Cinco entradas catalogadas'],
+                    10:['Gran viajero','Diez entradas catalogadas'],
+                    25:['El gran tour','Veinticinco entradas catalogadas'],
+                    50:['Conservador','Cincuenta entradas catalogadas'],
+                    100:['Centenario','Cien entradas catalogadas'],
+                    365:['La vuelta al año','Trescientas sesenta y cinco entradas catalogadas'] },
+             cont:(n,g)=>[`Descubriendo: ${n}`, `${g} entradas catalogadas: ${n}`],
+             trad10:['Memoria viva','Diez tradiciones vivas catalogadas'],
+             trad50:['Guardián de tradiciones','Cincuenta tradiciones vivas catalogadas'],
+             streak7:['Siete días seguidos','Una semana sin faltar un día'],
+             streak30:['La larga temporada','Un mes sin faltar un día'],
+             decades:['Viajero del tiempo','Entradas inscritas a lo largo de cinco décadas'],
+             bonus10:['Cazador de tradiciones','La ronda bonus resuelta diez veces'] },
+       achEarned:'Obtenidas', achLocked:'Aún por descubrir',
+       achLockedNone:'Todas las distinciones conseguidas.',
+       achEmpty:'Nada sellado todavía. Termina un día y el primero aparecerá aquí.',
        fieldNotesTitle:'Notas de campo', fieldNotesBtn:'Empezar',
        fieldNotes:['Tres sitios inscritos al día y después una ronda bonus sobre una tradición viva. Se te muestra una fotografía, no un nombre.',
                    'Toca el mapa donde creas que está y pulsa Proponer. Cada intento indica su distancia y rumbo, y si el continente y la región son correctos.',
@@ -1146,23 +1217,79 @@ function streaks(){
    Tied to what the player has actually seen of the world's heritage rather
    than to how often they open the page. Deliberately few. */
 const ARCHIVIST_TIERS = [5, 10, 25, 50, 100, 365];
-const ROMAN = ['I','II','III','IV','V','VI'];
+
+/* How many entries from a continent make "discovering" it true. Not one
+   number: the pool holds 712 European entries and 31 from Oceania, so a flat
+   threshold would be a formality in one place and unreachable in another.
+   These are roughly two months of play each, given how often a continent comes
+   up in the draw. */
+const CONTINENT_GOALS = { EU:15, AS:15, AF:8, NA:6, SA:6, OC:3 };
+
+const collectionSize = ()=> Object.keys(profile.collection).length;
+const catalogued = ()=> Object.values(profile.collection);
+const daysPlayed = ()=> Object.values(profile.days);
+
+/* Each distinction carries the mark that goes in its stamp -- short, because a
+   stamp is small, and text rather than a symbol so it centres and renders the
+   same everywhere. */
 const ACHIEVEMENTS = [
-  { id:'continents', test:()=> {
-      const seen = new Set(Object.values(profile.collection).map(r=>r.continent).filter(Boolean));
+  { id:'continents', mark:'360', test:()=> {
+      const seen = new Set(catalogued().map(r=>r.continent).filter(Boolean));
       return ['EU','AS','AF','NA','SA','OC'].every(c=>seen.has(c));
     } },
-  { id:'perfect',   test:()=> Object.values(profile.days).some(d=>d.score >= MAX_SCORE) },
-  { id:'hiddengem', test:()=> !!profile.gemFirstGuess },
-  { id:'flawless',  test:()=> Object.values(profile.days).some(d =>
+  { id:'perfect',   mark:'MAX', test:()=> daysPlayed().some(d=>d.score >= MAX_SCORE) },
+  { id:'hiddengem', mark:'1st', test:()=> !!profile.gemFirstGuess },
+  { id:'flawless',  mark:'4/4', test:()=> daysPlayed().some(d =>
       d.statuses && d.statuses.length === N_ROUNDS && d.statuses.every(x=>x==='solved')) },
-  // Tiered, because a single badge at twenty-five meant nothing happened for
-  // six days and then never again. Each threshold is its own distinction.
+  // The collection ladder. Tiered because a single badge at twenty-five meant
+  // nothing happened for six days and then never again; named rather than
+  // numbered because "Archivist IV" is a row in a table, not a reward.
   ...ARCHIVIST_TIERS.map(n => ({
-    id: 'archivist' + n, tier: n,
-    test: () => Object.keys(profile.collection).length >= n
-  }))
+    id: 'coll' + n, tier: n, mark: String(n),
+    test: () => collectionSize() >= n
+  })),
+  // A continent at a time, which is the shape the collection actually grows in.
+  ...Object.entries(CONTINENT_GOALS).map(([code, goal]) => ({
+    id: 'cont' + code, cont: code, goal, mark: code,
+    test: () => catalogued().filter(r => r.continent === code).length >= goal
+  })),
+  { id:'trad10', mark:'X', test:()=>
+      catalogued().filter(r => r.type === 'immaterial').length >= 10 },
+  { id:'trad50', mark:'L', test:()=>
+      catalogued().filter(r => r.type === 'immaterial').length >= 50 },
+  { id:'streak7',  mark:'7',  test:()=> streaks().best >= 7 },
+  { id:'streak30', mark:'30', test:()=> streaks().best >= 30 },
+  // Inscription decades, so a collection spread across the register's whole
+  // history is worth something a pile of famous cathedrals is not.
+  { id:'decades', mark:'50s', test:()=>
+      new Set(catalogued().map(r => r.year).filter(Boolean)
+                          .map(y => Math.floor(y / 10))).size >= 5 },
+  { id:'bonus10', mark:'B', test:()=>
+      daysPlayed().filter(d => d.statuses && d.statuses[3] === 'solved').length >= 10 }
 ];
+
+/* The name and description for a distinction, in the player's language. */
+function achText(a){
+  const T = t();
+  if(a.tier) return T.ach.coll[a.tier];
+  if(a.cont) return T.ach.cont(UI[lang].continents[a.cont] || a.cont, a.goal);
+  return T.ach[a.id];
+}
+
+/* A passport stamp, drawn rather than set in type: a glyph in a bordered span
+   sat wherever its font's metrics put it, which on most of them was not the
+   middle. Text is centred on the geometry here, and the earned ones are turned
+   a few degrees, the way a stamp lands. */
+function stampSvg(mark, earned){
+  const size = mark.length > 2 ? 10 : (mark.length > 1 ? 13 : 16);
+  return `<svg class="stamp-mark${earned ? ' earned' : ''}" viewBox="0 0 48 48"
+               aria-hidden="true" focusable="false">
+    <circle class="ring outer" cx="24" cy="24" r="21.5"/>
+    <circle class="ring inner" cx="24" cy="24" r="16.5"/>
+    <text class="stamp-text" x="24" y="24" dy="0.35em"
+          style="font-size:${size}px">${mark}</text>
+  </svg>`;
+}
 
 function checkAchievements(){
   if(isPractice) return [];
@@ -1998,6 +2125,24 @@ function renderGallery(){
 function stepGallery(by){ galleryAt += by; renderGallery(); }
 document.getElementById('galPrev').addEventListener('click', ()=> stepGallery(-1));
 document.getElementById('galNext').addEventListener('click', ()=> stepGallery(1));
+
+/* Swipe, because on a phone reaching for a small arrow is not what a hand
+   expects to do with a photograph. Passive listeners, and only a mostly
+   sideways movement counts, so scrolling the panel still works normally. */
+(function swipeGallery(){
+  const gal = document.getElementById('gal');
+  let x0 = null, y0 = null;
+  gal.addEventListener('touchstart', e=>{
+    const t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY;
+  }, { passive:true });
+  gal.addEventListener('touchend', e=>{
+    if(x0 === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    if(Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy) * 1.5) stepGallery(dx < 0 ? 1 : -1);
+  }, { passive:true });
+})();
 document.addEventListener('keydown', e=>{
   if(!document.getElementById('modalBackdrop').classList.contains('open')) return;
   if(e.key === 'ArrowLeft') stepGallery(-1);
@@ -2261,18 +2406,27 @@ function renderPassport(){
     return `<div class="stamp s${tier}" title="Day ${d.day}">
       <b>${Math.round(d.score)}</b><span>#${d.day}</span></div>`;
   }).join('');
-  const ach = ACHIEVEMENTS.map(a=>{
-    const got = profile.achievements.includes(a.id);
-    // Numbered, or six rows all called "Archivist" read as a bug rather than
-    // a ladder.
-    const entry = a.tier
-      ? T.ach.archivist(a.tier, ROMAN[ARCHIVIST_TIERS.indexOf(a.tier)])
-      : T.ach[a.id];
-    const [name, desc] = entry;
+  // Earned on the page, locked out of sight. Twenty-two rows of mostly grey
+  // is a list of things you have not done; what a player comes back to is the
+  // page of stamps they have. The rest are one tap away for whoever wants to
+  // know what is left.
+  const row = (a, got)=>{
+    const [name, desc] = achText(a);
     return `<div class="ach${got ? '' : ' locked'}">
-      <span class="seal">${got ? '★' : '·'}</span>
+      ${stampSvg(a.mark, got)}
       <div><b>${name}</b><span>${desc}</span></div></div>`;
-  }).join('');
+  };
+  const earned = ACHIEVEMENTS.filter(a => profile.achievements.includes(a.id));
+  const locked = ACHIEVEMENTS.filter(a => !profile.achievements.includes(a.id));
+  const achEarned = earned.length
+    ? `<div class="ach-list">${earned.map(a => row(a, true)).join('')}</div>`
+    : `<p class="ach-empty">${T.achEmpty}</p>`;
+  const achLocked = locked.length
+    ? `<details class="ach-locked"><summary>${T.achLocked}
+         <span class="count">${locked.length}</span></summary>
+       <div class="ach-list">${locked.map(a => row(a, false)).join('')}</div></details>`
+    : `<p class="ach-empty">${T.achLockedNone}</p>`;
+  const ach = achEarned + achLocked;
   document.getElementById('viewPassport').innerHTML =
     `<div class="panel-head"><h2>${T.passportTitle}</h2><p>${T.passportSub}</p></div>
      <div class="stats">
@@ -2282,8 +2436,9 @@ function renderPassport(){
        <div class="stat"><b>${avg}</b><span>${T.statAvg}</span></div>
      </div>
      <div class="stamps">${stamps}</div>
-     <div class="panel-head" style="margin-top:20px"><h2>${T.achTitle}</h2></div>
-     <div class="ach-list">${ach}</div>
+     <div class="panel-head" style="margin-top:20px"><h2>${T.achTitle}</h2>
+       <p>${T.achEarned} ${earned.length} / ${ACHIEVEMENTS.length}</p></div>
+     ${ach}
      <label class="cb-row"><input type="checkbox" id="cbToggle"
        ${cbOn() ? 'checked' : ''}> ${T.cbLabel}</label>
      <p class="cb-note">${T.cbNote}</p>`;
