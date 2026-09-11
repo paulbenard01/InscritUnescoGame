@@ -73,6 +73,24 @@ def play_day(page, base, day, width, label):
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
     check(page.evaluate("targets.length") == 3, f"{label}: three targets chosen")
+    # The detailed geometry is fetched, not inlined, so a missing or
+    # canvas-mismatched file degrades silently to the coarse outline.
+    check(page.evaluate("LAND_PATH !== null"), f"{label}: detailed map geometry loaded")
+    # Pin radii are in world units and must counter-scale, or a guess dot
+    # covers a whole country once you zoom in.
+    r_world, r_zoom = page.evaluate("""
+      () => {
+        addPin(0, 0, 'far', false);
+        const c = document.querySelector('#pinLayer circle');
+        const a = parseFloat(c.getAttribute('r'));
+        mapView.w = MAP_W / 8; applyView();
+        const b = parseFloat(c.getAttribute('r'));
+        mapView = { x:0, y:0, w:MAP_W, h:MAP_H }; applyView();
+        return [a, b];
+      }
+    """)
+    check(r_zoom < r_world / 4, f"{label}: pins scale with the map",
+          f"world r={r_world} zoomed r={r_zoom}")
 
     # ---- every language renders ----
     for code, needle in (("fr", "devinettes"), ("es", "adivinanzas"), ("en", "heritage")):
