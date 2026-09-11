@@ -16,9 +16,12 @@ then tests each candidate against facts:
   1. How many items carry it as a heritage designation (P1435)? The official
      register holds 788 elements across three lists; a pool an order of
      magnitude off is the wrong pool.
-  2. Is there a dedicated identifier property for these elements? An item that
-     carries an official element ID is inscribed by definition, so counting
-     those is a second, independent read on the same number.
+  2. Is there a dedicated property for these elements, and what values does it
+     take? This is what the first run of this probe turned up: the register is
+     modelled as a *status* (P3259), whose values enumerate the individual
+     lists, rather than as a single heritage designation. No P1435 value comes
+     anywhere near the register's size, which is why the original approach had
+     nothing to find.
   3. What do the members actually look like? Traditions are events, practices
      and art forms. A pool whose members carry coordinates and are instances of
      "archaeological site" is a list of places, whatever it is called.
@@ -84,6 +87,34 @@ LIMIT 12
 # Items carrying a given identifier property, as an independent count.
 PROP_COUNT_QUERY = "SELECT (COUNT(DISTINCT ?item) AS ?n) WHERE { ?item wdt:%s ?v . }"
 
+# The values a status property takes, with how many items hold each. This is
+# what actually answers the question: the international register is modelled as
+# a *status*, whose values enumerate the individual lists, rather than as a
+# single heritage designation.
+VALUE_BREAKDOWN_QUERY = """
+SELECT ?v ?vLabel (COUNT(DISTINCT ?item) AS ?n) WHERE {
+  ?item wdt:%s ?v .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+GROUP BY ?v ?vLabel
+ORDER BY DESC(?n)
+LIMIT 25
+"""
+# Shape checks, phrased against a status property rather than P1435.
+STATUS_SHAPE_QUERY = """
+SELECT ?kindLabel (COUNT(DISTINCT ?item) AS ?n) WHERE {
+  ?item wdt:%s wd:%s . ?item wdt:P31 ?kind .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+GROUP BY ?kindLabel ORDER BY DESC(?n) LIMIT 6
+"""
+STATUS_SAMPLE_QUERY = """
+SELECT ?itemLabel WHERE {
+  ?item wdt:%s wd:%s .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+} LIMIT 10
+"""
+
 
 def sparql(query):
     r = requests.post(SPARQL_URL, data={"query": query, "format": "json"},
@@ -138,6 +169,40 @@ def main():
         print(f"  {pid:8} {label[:44]:<44} {str(n):>6} items{flag}")
         if desc:
             print(f"           {desc[:66]}")
+
+    # ---- what values those status properties take ----
+    # A property with thousands of items is covering national and regional
+    # registers as well as the international one; its values are the lists.
+    for pid, (label, _desc) in props.items():
+        total = scalar(PROP_COUNT_QUERY % pid, 0) or 0
+        if total < 500:
+            continue
+        print(f"\nValues of {pid} ({label[:40]}) — {total} items in all:")
+        try:
+            rows = sparql(VALUE_BREAKDOWN_QUERY % pid)
+        except Exception as exc:
+            print(f"  breakdown failed: {exc}", file=sys.stderr)
+            continue
+        near = []
+        for row in rows:
+            qid = row["v"]["value"].rsplit("/", 1)[-1]
+            vlabel = row.get("vLabel", {}).get("value", qid)
+            n = int(row["n"]["value"])
+            mark = ""
+            if abs(n - OFFICIAL_TOTAL) < 250 or "umanity" in vlabel or "afeguard" in vlabel:
+                mark = "  <--"
+                near.append((pid, qid, vlabel, n))
+            print(f"  {qid:12} {vlabel[:50]:<50} {n:>5}{mark}")
+        for ppid, qid, vlabel, n in near[:4]:
+            print(f"\n  {qid} — {vlabel}  [{n} items]")
+            try:
+                for r in sparql(STATUS_SHAPE_QUERY % (ppid, qid)):
+                    print(f"    instance of: {r['kindLabel']['value'][:42]:<42} "
+                          f"{r['n']['value']:>5}")
+                for r in sparql(STATUS_SAMPLE_QUERY % (ppid, qid))[:8]:
+                    print(f"      \u00b7 {r['itemLabel']['value'][:58]}")
+            except Exception as exc:
+                print(f"    detail failed: {exc}", file=sys.stderr)
 
     # ---- candidate designation values ----
     candidates = {}
