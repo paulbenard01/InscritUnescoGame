@@ -15,6 +15,7 @@ import argparse
 import glob
 import http.server
 import os
+import re
 import shutil
 import socketserver
 import subprocess
@@ -578,6 +579,63 @@ def main():
             page.locator("#galPrev").click(); page.wait_for_timeout(150)
             check(page.evaluate("document.getElementById('galImg').src") == first,
                   "and back again")
+        if shots > 1:
+            # A swipe, because reaching for a small arrow is not what a hand
+            # expects to do with a photograph.
+            at = page.evaluate("galleryAt")
+            page.evaluate("""
+              () => {
+                const gal = document.getElementById('gal');
+                const r = gal.getBoundingClientRect();
+                const y = r.top + r.height / 2;
+                const touch = (type, x) => gal.dispatchEvent(new TouchEvent(type, {
+                  bubbles: true,
+                  changedTouches: [new Touch({ identifier: 1, target: gal,
+                                               clientX: x, clientY: y })]
+                }));
+                touch('touchstart', r.left + r.width * 0.8);
+                touch('touchend',   r.left + r.width * 0.2);
+              }
+            """)
+            page.wait_for_timeout(150)
+            check(page.evaluate("galleryAt") == at + 1,
+                  "swiping left moves to the next photograph",
+                  str(page.evaluate("galleryAt")))
+            page.evaluate("""
+              () => {
+                const gal = document.getElementById('gal');
+                const r = gal.getBoundingClientRect();
+                const y = r.top + r.height / 2;
+                const touch = (type, x) => gal.dispatchEvent(new TouchEvent(type, {
+                  bubbles: true,
+                  changedTouches: [new Touch({ identifier: 1, target: gal,
+                                               clientX: x, clientY: y })]
+                }));
+                touch('touchstart', r.left + r.width * 0.2);
+                touch('touchend',   r.left + r.width * 0.8);
+              }
+            """)
+            page.wait_for_timeout(150)
+            check(page.evaluate("galleryAt") == at,
+                  "and swiping right goes back")
+            # A mostly-vertical drag is the page scrolling, not a swipe.
+            page.evaluate("""
+              () => {
+                const gal = document.getElementById('gal');
+                const r = gal.getBoundingClientRect();
+                const x = r.left + r.width / 2;
+                const touch = (type, y) => gal.dispatchEvent(new TouchEvent(type, {
+                  bubbles: true,
+                  changedTouches: [new Touch({ identifier: 1, target: gal,
+                                               clientX: x, clientY: y })]
+                }));
+                touch('touchstart', r.top + 10);
+                touch('touchend',   r.top + 120);
+              }
+            """)
+            page.wait_for_timeout(150)
+            check(page.evaluate("galleryAt") == at,
+                  "a vertical drag is a scroll, not a swipe")
         check(page.locator("#modalFav").is_hidden(),
               "an entry not in the collection offers no star to keep it by")
         page.evaluate("document.getElementById('modalClose').click()")
@@ -593,11 +651,80 @@ def main():
               "and starring again puts it back")
         page.evaluate("showView('Passport')"); page.wait_for_timeout(300)
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
-        # Four one-off distinctions plus one Archivist tier per threshold.
+        # What a player comes back to is the stamps they have, so the earned
+        # ones are on the page and the rest are behind a disclosure.
         expected_ach = page.evaluate("ACHIEVEMENTS.length")
+        check(expected_ach >= 20, "there are distinctions worth chasing",
+              str(expected_ach))
+        # Earned enough to be worth showing, rather than whatever four entries
+        # in one day happens to unlock -- otherwise "only the earned ones are
+        # shown" passes against an empty list and proves nothing.
+        page.evaluate("""
+          () => {
+            POOL.slice(0, 60).forEach(e => catalogue(e, true));
+            profile.days[dayIndex] = { score: MAX_SCORE,
+              statuses: ['solved','solved','solved','solved'] };
+            checkAchievements();
+            renderPassport();
+          }
+        """)
+        page.wait_for_timeout(250)
+        earned = page.evaluate("profile.achievements.length")
+        check(earned >= 5, "a filled collection earns a spread of distinctions",
+              str(earned))
+        shown = page.locator("#viewPassport > .ach-list > .ach").count()
+        check(shown == earned, "only the earned distinctions are on the page",
+              f"{shown} shown, {earned} earned")
+        head = page.locator("#viewPassport .panel-head p").last.inner_text()
+        check(str(earned) in head and str(expected_ach) in head,
+              "the heading counts what is earned against what exists", head)
+        # An earned stamp is turned; a locked one sits straight.
+        rot = page.evaluate("""
+          () => {
+            const e = document.querySelector('#viewPassport > .ach-list .stamp-mark');
+            const l = document.querySelector('.ach-locked .stamp-mark');
+            return [getComputedStyle(e).transform, l ? getComputedStyle(l).transform : 'none'];
+          }
+        """)
+        check(rot[0] != "none" and rot[0] != rot[1],
+              "an earned stamp is struck at an angle, a locked one is not", str(rot))
+        det = page.locator("#viewPassport .ach-locked")
+        check(det.count() == 1, "the rest are behind a disclosure")
+        check(not page.evaluate(
+                "document.querySelector('.ach-locked').hasAttribute('open')"),
+              "which starts closed")
+        # Closed means out of the way, not merely unstyled.
+        check(page.locator(".ach-locked .ach").first.is_hidden(),
+              "a locked distinction is not visible until asked for")
+        page.evaluate("document.querySelector('.ach-locked summary').click()")
+        page.wait_for_timeout(200)
+        check(page.locator(".ach-locked .ach").first.is_visible(),
+              "and is there when it is")
         check(page.locator("#viewPassport .ach").count() == expected_ach,
-              "every distinction is listed", str(expected_ach))
-        check(expected_ach >= 9, "the Archivist ladder has tiers", str(expected_ach))
+              "every distinction is accounted for, open", str(expected_ach))
+        # The stamp is drawn, not set in type: a glyph in a circle sat off
+        # centre at every size, which is what made it look cheap.
+        box = page.locator("#viewPassport .ach .stamp-mark").first.bounding_box()
+        check(box and abs(box["width"] - box["height"]) < 2,
+              "the stamp is round", str(box))
+        centred = page.evaluate("""
+          () => {
+            const svg = document.querySelector('.ach .stamp-mark');
+            const ring = svg.querySelector('.ring.inner').getBoundingClientRect();
+            const txt = svg.querySelector('.stamp-text').getBoundingClientRect();
+            return [Math.abs((ring.left + ring.right) / 2 - (txt.left + txt.right) / 2),
+                    Math.abs((ring.top + ring.bottom) / 2 - (txt.top + txt.bottom) / 2)];
+          }
+        """)
+        check(max(centred) < 2.5, "and its mark sits in the middle of it",
+              str(centred))
+        # Names, not numbers: a ladder called Archivist I..VI is a table row.
+        names = page.locator("#viewPassport .ach b").all_inner_texts()
+        check(not any(re.search(r"\b(I{1,3}|IV|V|VI)$", n) for n in names),
+              "no distinction is named by a numeral", str(names[:8]))
+        check(any("Discovering" in n or "couverte" in n or "Descubriendo" in n
+                  for n in names),
+              "a continent can be discovered", str(names[:8]))
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
         # One row per day since launch, capped at the 60 the archive shows. On
         # day one that is a single row -- an archive of days nobody could have
