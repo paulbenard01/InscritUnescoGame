@@ -776,20 +776,29 @@ def wikipedia_images(titles_by_lang):
                     "titles": "|".join(batch), "format": "json",
                 }, headers=HEADERS, timeout=REQUEST_TIMEOUT)
                 r.raise_for_status()
-                for page in r.json().get("query", {}).get("pages", {}).values():
+                body = r.json()
+                if "error" in body:
+                    # A rejected parameter comes back as HTTP 200 with an error
+                    # object and no results at all, which is indistinguishable
+                    # from an article with no picture unless it is reported.
+                    print(f"    {lang}: API error — "
+                          f"{body['error'].get('code')}: {body['error'].get('info')}")
+                for page in body.get("query", {}).get("pages", {}).values():
                     src = (page.get("original") or {}).get("source")
                     title = page.get("title")
                     if not src or not title:
                         continue
-                    name = unquote(src.rsplit("/", 1)[-1]).replace("_", " ")
+                    name = commons_filename(src)
                     if is_photo(name):
                         # Keyed on a canonical form: the API answers with the
                         # normalised title, which differs from the one asked
                         # for on underscores, case and redirects, and an exact
                         # match therefore missed nearly every article.
                         out[(lang, canon_title(title))] = name
-            except (requests.RequestException, ValueError, KeyError):
-                pass
+            except (requests.RequestException, ValueError, KeyError) as err:
+                # Swallowing this is how a fallback that never worked looked
+                # like one that simply found nothing.
+                print(f"    {lang}: batch failed — {type(err).__name__}: {err}")
             time.sleep(COMMONS_DELAY)
     return out
 
@@ -831,6 +840,22 @@ def is_photo(filename):
     return filename.lower().endswith(PHOTO_EXT)
 
 
+def commons_filename(url):
+    """The Commons file name inside an image URL.
+
+    The query string has to go first. Wikipedia's pageimages API now returns
+    its `original` source with tracking parameters attached --
+    `.../GoshawkFalconry.jpg?utm_source=en.wikipedia.org&utm_campaign=api` --
+    so taking everything after the last slash yielded a name ending in
+    `&utm_content=original`, which is_photo() rejected. That, and nothing else,
+    is why the lead-image fallback reported 0 photographs out of 210 articles.
+    """
+    if not url:
+        return ""
+    return unquote(url.split("?", 1)[0].split("#", 1)[0]
+                      .rsplit("/", 1)[-1]).replace("_", " ")
+
+
 def resolve_photos(dataset, all_items):
     """Attach up to PHOTOS_PER_ENTRY usable Commons photos to every entry.
 
@@ -848,7 +873,7 @@ def resolve_photos(dataset, all_items):
         it = all_items[entry["qid"]]
         names = []
         for uri in it.get("images", []):
-            name = unquote(uri.split("/")[-1]).replace("_", " ")
+            name = commons_filename(uri)
             if is_photo(name):
                 names.append(name)
         entry["_photo_names"] = names[:PHOTOS_PER_ENTRY * 2]

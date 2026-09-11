@@ -1,0 +1,47 @@
+name: Probe the Wikipedia lead-image fallback
+
+# Development probe, not part of the game or the deploy. Runs here because
+# Wikipedia is unreachable from the development sandbox.
+#
+# One open question: the fallback reported 0 lead photographs out of 210
+# articles, which is what a rejected request looks like, not what "no picture"
+# looks like. This asks the API and prints what comes back. Nothing is applied
+# automatically.
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/probe_leadimages.py'
+      - '.github/workflows/probe-leadimages.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install requests
+
+      - name: Probe
+        env:
+          HERITLE_CONTACT: ${{ github.repository_owner }}@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          python tools/probe_leadimages.py 2>&1 | tee leadimages.log
+
+      - name: Report
+        if: always()
+        run: |
+          echo '### Lead-image probe' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat leadimages.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY

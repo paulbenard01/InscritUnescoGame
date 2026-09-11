@@ -65,7 +65,7 @@ def tap_guess(page, country_js):
 
 
 def T_BONUS_INTRO_SHOWN(page):
-    """The one-guess rule has to be visible before the guess is spent."""
+    """The bonus round's terms have to be visible before a guess is spent."""
     return page.evaluate("""
       () => document.getElementById('mapReadout').textContent === t().bonusIntro
     """)
@@ -358,7 +358,7 @@ def play_day(page, base, day, width, label):
           f"{label}: solving late still takes full marks")
     page.click("#nextBtn"); page.wait_for_timeout(250)
 
-    # ---- round 4: the intangible bonus round, one guess only ----
+    # ---- round 4: the intangible bonus round ----
     # If the pool has no traditions in it the bonus round silently falls back
     # to a fourth site, so check the pool first -- otherwise the failure reads
     # as a game bug when it is a dataset that predates the intangible pool.
@@ -367,16 +367,28 @@ def play_day(page, base, day, width, label):
     check(page.evaluate("targets[3].type") == "immaterial",
           f"{label}: the bonus round is an intangible element",
           str(page.evaluate("targets[3].type")))
-    check(page.evaluate("guessesAllowed(3)") == 1,
-          f"{label}: the bonus round allows a single guess",
+    # A tradition is far harder to place than a building, so a single guess
+    # meant the round was lost by default rather than played. Three, like the
+    # rest -- and the photograph ladder that comes with them.
+    check(page.evaluate("guessesAllowed(3)") == 3,
+          f"{label}: the bonus round allows three guesses",
           str(page.evaluate("guessesAllowed(3)")))
     check(T_BONUS_INTRO_SHOWN(page), f"{label}: the bonus round says so before the guess")
-    w = page.evaluate("() => COUNTRIES.find(c => c.names.en !== targets[3].country.en).id")
-    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", w)
-    page.wait_for_timeout(300)
+    wrongs = page.evaluate("""
+      () => COUNTRIES.filter(c => !targetCountries().some(a => a.id === c.id))
+                     .slice(0, 3).map(c => c.id)
+    """)
+    check(len(wrongs) == 3, f"{label}: three wrong countries available for the bonus")
+    for i, cid in enumerate(wrongs):
+        page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", cid)
+        page.wait_for_timeout(80)
+        if i == 0:
+            check(page.evaluate("state.roundStatus[3]") is None,
+                  f"{label}: one wrong guess does not end the bonus round",
+                  str(page.evaluate("state.roundStatus[3]")))
     check(page.evaluate("state.roundStatus[3]") == "failed", f"{label}: bonus round resolved")
-    check(page.evaluate("state.guesses[3].length") == 1,
-          f"{label}: the bonus round ends after one guess",
+    check(page.evaluate("state.guesses[3].length") == 3,
+          f"{label}: the bonus round ends after its allowance",
           str(page.evaluate("state.guesses[3].length")))
     page.click("#nextBtn"); page.wait_for_timeout(400)
 
@@ -464,6 +476,39 @@ def main():
         check(cards >= 2, "solved entries are catalogued", str(cards))
         acc = page.locator("#viewCollection .acc").first.inner_text()
         check(acc.startswith("HTL."), "cards carry an accession number", acc)
+        # A card is the only way back to something met in a round, so it has to
+        # open, and open with links that go somewhere.
+        page.locator("#viewCollection .card").first.click()
+        page.wait_for_timeout(300)
+        check("open" in (page.locator("#modalBackdrop").get_attribute("class") or ""),
+              "a collection card opens its entry")
+        links = page.locator("#modalLinks .learn-link").count()
+        check(links >= 1, "the card's entry offers somewhere to learn more",
+              str(links))
+        hrefs = page.locator("#modalLinks .learn-link").evaluate_all(
+            "els => els.map(e => e.href)")
+        check(all(h.startswith("https://") for h in hrefs),
+              "every link resolves to a real address", str(hrefs))
+        # Favouriting from the card that is already open.
+        page.locator("#modalFav").click(); page.wait_for_timeout(200)
+        page.evaluate("document.getElementById('modalClose').click()")
+        page.wait_for_timeout(250)
+        check(page.evaluate("Object.keys(profile.favourites).length") == 1,
+              "the star keeps an entry",
+              str(page.evaluate("Object.keys(profile.favourites).length")))
+        heads = page.locator("#viewCollection .panel-head h2").all_inner_texts()
+        check(len(heads) == 2 and "Favourite" in heads[0],
+              "favourites get a shelf of their own, first", str(heads))
+        check(page.locator("#viewCollection .card .fav.on").count() == 1,
+              "and the starred card shows as kept")
+        # Starring must not open the card -- it is a button of its own.
+        page.evaluate("document.getElementById('modalBackdrop').classList.remove('open')")
+        page.locator("#viewCollection .card .fav").first.click()
+        page.wait_for_timeout(250)
+        check("open" not in (page.locator("#modalBackdrop").get_attribute("class") or ""),
+              "tapping the star does not open the card")
+        check(page.evaluate("Object.keys(profile.favourites).length") == 0,
+              "and starring again puts it back")
         page.evaluate("showView('Passport')"); page.wait_for_timeout(300)
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
         # Four one-off distinctions plus one Archivist tier per threshold.

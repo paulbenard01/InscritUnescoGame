@@ -95,7 +95,7 @@ def main():
                 check(sorted(p["tier"] for p in plan[:3]) == [1, 2, 3],
                       "difficulty ramps across the three heritage rounds", str(plan))
                 check(plan[3]["tier"] == 1,
-                      "the one-guess bonus round draws a widely known element", str(plan))
+                      "the bonus round draws a widely known element", str(plan))
                 ids = page.evaluate("targets.map(t=>t.id)")
                 check(len(set(ids)) == 4, "four distinct targets", str(ids))
 
@@ -194,12 +194,13 @@ def main():
                 page.click("#nextBtn"); page.wait_for_timeout(200)
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(200)
                 page.click("#nextBtn"); page.wait_for_timeout(200)
-                # The bonus round: a single guess, then straight to the result.
-                check(page.evaluate("guessesAllowed(3)") == 1,
-                      "the bonus round allows one guess")
+                # The bonus round: three guesses like the rest, since a
+                # tradition on one guess was lost by default rather than played.
+                check(page.evaluate("guessesAllowed(3)") == 3,
+                      "the bonus round allows three guesses")
                 page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(250)
                 check(page.evaluate("state.roundStatus[3]") == "solved",
-                      "the bonus round resolves on its single guess")
+                      "the bonus round resolves when named")
                 page.click("#nextBtn"); page.wait_for_timeout(300)
                 check(not page.locator("#finalResult").is_hidden(), "final screen reached")
                 # Round 1 took a wrong guess before the right one, which still
