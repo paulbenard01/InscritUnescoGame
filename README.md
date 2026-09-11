@@ -241,7 +241,10 @@ under Settings → Pages → Source: **GitHub Actions**.
 
 ## Licences
 
-Game code: yours. Map coastlines: Natural Earth via
-[world-atlas](https://github.com/topojson/world-atlas) (ISC). Entry metadata:
-Wikidata (CC0). Photos: individually licensed by their Commons contributors —
-the licence and attribution ride with each entry and are displayed in-game.
+Game code: yours. Map coastlines and country borders: [Natural
+Earth](https://www.naturalearthdata.com/) 10m admin-0 countries, public domain,
+fetched from [natural-earth-vector](https://github.com/nvkelso/natural-earth-vector)
+and compiled by `tools/build_land.py`. Entry metadata: Wikidata (CC0). Photos:
+individually licensed by their Commons contributors — the licence and
+attribution ride with each photograph, not with the entry, and are displayed
+in-game beside whichever one is showing.

@@ -10,7 +10,7 @@ on:
       url:
         description: 'Site URL to play'
         required: false
-        default: 'https://paulbenard01.github.io/InscritUnescoGame/'
+        default: 'https://paulbenard01.github.io/Heritle/'
   workflow_run:
     workflows: ['Deploy to GitHub Pages']
     types: [completed]
@@ -46,7 +46,7 @@ jobs:
       - name: Fetch the live URL
         id: fetch
         env:
-          URL: ${{ inputs.url || 'https://paulbenard01.github.io/InscritUnescoGame/' }}
+          URL: ${{ inputs.url || 'https://paulbenard01.github.io/Heritle/' }}
         run: |
           set -euo pipefail
           echo "url=$URL" >> "$GITHUB_OUTPUT"
