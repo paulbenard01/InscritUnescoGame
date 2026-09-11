@@ -251,32 +251,57 @@ def play_day(page, base, day, width, label):
         check(all(ok), f"{label}: every inscribing country counts as correct",
               str(list(zip(multi["names"], ok))))
 
-    # ---- a wrong guess reveals another photograph ----
+    # ---- a wrong guess reveals another photograph, and you can page back ----
     # A single weak photo made a round unguessable rather than hard, so each
-    # miss uncovers another. Checked on an entry that actually has several.
+    # miss uncovers another. Driven through submitGuess rather than by poking
+    # the state, because the view advancing is part of the behaviour.
     photo_state = page.evaluate("""
       () => {
-        // From the pool, not from today's four: whether a given day happens to
-        // draw a multi-photo entry is luck, and a test that depends on the
-        // draw fails on some days and passes on others.
-        const tg = POOL.find(t => (t.photos || []).length > 1);
+        const tg = POOL.find(t => (t.photos || []).length > 2);
         if(!tg) return null;
-        const saved = targets[state.round];
         targets[state.round] = tg;
-        const before = currentPhoto(tg).file;
-        const n = photosOf(tg).length;
-        state.guesses[state.round].push({id:'x', km:1, bearing:0, bucket:'far'});
+        photoView[state.round] = 0;
+        render();
+        const first = currentPhoto(tg).file;
+        const unlockedBefore = unlockedCount(tg);
+        const wrong = COUNTRIES.find(c => !targetCountries().some(a => a.id === c.id));
+        submitGuess(wrong);
         const after = currentPhoto(tg).file;
-        state.guesses[state.round].pop();
-        targets[state.round] = saved;
-        return { before, after, n };
+        const shownIdx = photoIndexFor(tg);
+        const unlockedAfter = unlockedCount(tg);
+        stepPhoto(-1);
+        const backIdx = photoIndexFor(tg), backOne = currentPhoto(tg).file;
+        stepPhoto(1);
+        const forwardAgain = currentPhoto(tg).file;
+        return { first, after, backOne, forwardAgain, shownIdx, backIdx,
+                 unlockedBefore, unlockedAfter,
+                 credit: document.getElementById('photoCredit').textContent };
       }
     """)
     check(photo_state is not None, f"{label}: some entries carry several photos")
     if photo_state:
-        check(photo_state["before"] != photo_state["after"],
-              f"{label}: a wrong guess reveals a different photo",
-              f"{photo_state['before']} -> {photo_state['after']}")
+        check(photo_state["unlockedAfter"] == photo_state["unlockedBefore"] + 1,
+              f"{label}: a guess unlocks one more photograph",
+              f"{photo_state['unlockedBefore']} -> {photo_state['unlockedAfter']}")
+        check(photo_state["shownIdx"] == photo_state["unlockedAfter"] - 1,
+              f"{label}: the newly unlocked photograph is the one shown",
+              f"index {photo_state['shownIdx']} of {photo_state['unlockedAfter']}")
+        # Back one from whatever is showing -- not back to the first, since a
+        # guess earlier in the round may already have unlocked others.
+        check(photo_state["backIdx"] == photo_state["shownIdx"] - 1
+              and photo_state["backOne"] != photo_state["after"],
+              f"{label}: you can page back to an earlier photograph",
+              f"index {photo_state['backIdx']} after {photo_state['shownIdx']}")
+        check(photo_state["forwardAgain"] == photo_state["after"],
+              f"{label}: and forward again to the newest")
+        # A photographer's name or licence template often names a country.
+        check(photo_state["credit"] == "",
+              f"{label}: no photo credit while the round is live",
+              photo_state["credit"])
+    page.reload()
+    page.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
+    page.evaluate("document.getElementById('fnClose')?.click()")
+    page.wait_for_timeout(250)
 
     # ---- round 1: win outright ----
     page.evaluate("submitGuess(targetCountry())")
@@ -434,7 +459,11 @@ def main():
         check(acc.startswith("HTL."), "cards carry an accession number", acc)
         page.evaluate("showView('Passport')"); page.wait_for_timeout(300)
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
-        check(page.locator("#viewPassport .ach").count() == 5, "five distinctions listed")
+        # Four one-off distinctions plus one Archivist tier per threshold.
+        expected_ach = page.evaluate("ACHIEVEMENTS.length")
+        check(page.locator("#viewPassport .ach").count() == expected_ach,
+              "every distinction is listed", str(expected_ach))
+        check(expected_ach >= 9, "the Archivist ladder has tiers", str(expected_ach))
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
         # One row per day since launch, capped at the 60 the archive shows. On
         # day one that is a single row -- an archive of days nobody could have

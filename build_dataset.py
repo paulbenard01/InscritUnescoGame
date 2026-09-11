@@ -1023,6 +1023,14 @@ def to_entry(it, seen_ids, coverage):
         entry["approx"] = True
     if it.get("site_id"):
         entry["siteId"] = it["site_id"]
+    # Links out, for the collection. Article titles come free with the photo
+    # lookup; the official element page is the only identifier intangible
+    # elements have.
+    wiki = {l: t for l, t in (it.get("wiki") or [])}
+    if wiki:
+        entry["wiki"] = wiki
+    if it.get("official_urls"):
+        entry["officialUrl"] = it["official_urls"][0]
 
     aliases = {a for vals in it["aliases"].values() for a in vals}
     aliases |= set(entry["names"].values())

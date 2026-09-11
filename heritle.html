@@ -83,12 +83,26 @@
   /* The board crops to 16:10, which hides most of the frame. Tapping opens the
      whole photo so the player can read the detail they're guessing from. */
   .photo-box.zoomable{cursor:zoom-in;}
-  .photo-count{position:absolute;top:6px;left:8px;font-family:'JetBrains Mono',monospace;
-    font-size:0.62rem;color:var(--ink-dim);background:rgba(19,29,52,0.72);
-    border-radius:4px;padding:2px 6px;}
-  /* Gold only on the guess that just revealed it, so a new photo announces
-     itself without the badge shouting for the rest of the round. */
-  .photo-count.fresh{color:var(--navy);background:var(--gold);}
+  .share-note{font-size:0.72rem;color:var(--ink-dim);margin:8px 0 0;}
+  .cb-note{font-size:0.72rem;color:var(--ink-dim);line-height:1.5;margin:6px 0 0;}
+
+  .modal-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .learn-link{display:inline-block;padding:9px 13px;border:1px solid var(--gold-dim);
+    border-radius:7px;color:var(--gold);text-decoration:none;font-size:0.78rem;
+    min-height:40px;line-height:22px;}
+  .learn-link:hover{background:rgba(201,162,75,0.12);}
+
+  .photo-nav{position:absolute;top:6px;left:8px;display:flex;align-items:center;gap:2px;
+    background:rgba(19,29,52,0.72);border-radius:4px;}
+  .photo-nav[hidden]{display:none;}
+  .photo-nav button{background:none;border:none;color:var(--ink-dim);cursor:pointer;
+    font-size:0.9rem;line-height:1;padding:4px 7px;min-height:30px;}
+  .photo-nav button:disabled{opacity:0.25;cursor:default;}
+  .photo-count{font-family:'JetBrains Mono',monospace;font-size:0.62rem;
+    color:var(--ink-dim);padding:2px 2px;}
+  /* Gold only on the guess that just revealed one, so a new photograph
+     announces itself without the badge shouting for the rest of the round. */
+  .photo-count.fresh{color:var(--gold);}
   .zoom-hint{position:absolute;top:6px;right:8px;width:26px;height:26px;border-radius:50%;
     background:rgba(19,29,52,0.7);border:1px solid var(--gold-dim);display:none;
     align-items:center;justify-content:center;pointer-events:none;}
@@ -328,7 +342,11 @@
         <span id="fallbackText"></span>
       </div>
       <span class="photo-credit" id="photoCredit"></span>
-      <span class="photo-count" id="photoCount"></span>
+      <div class="photo-nav" id="photoNav" hidden>
+        <button id="photoPrev" aria-label="Previous photograph">‹</button>
+        <span class="photo-count" id="photoCount"></span>
+        <button id="photoNext" aria-label="Next photograph">›</button>
+      </div>
       <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
     </div>
 
@@ -386,7 +404,7 @@
     <p id="modalDesc"></p>
     <div class="modal-section">
       <span class="label" id="modalVideoLabel"></span>
-      <p id="modalVideoText"></p>
+      <div class="modal-links" id="modalLinks"></div>
     </div>
     <button class="btn secondary modal-close" id="modalClose"></button>
   </div>
@@ -518,23 +536,26 @@ const UI = {
              perfect:['Full marks','A day scored the maximum'],
              hiddengem:['Sharp eye','A hidden gem found on the first guess'],
              flawless:['Clean sweep','Every round of a day solved'],
-             archivist:['Archivist','25 entries catalogued'] },
+             archivist:(n,r)=>[`Archivist ${r}`, `${n} entries catalogued`] },
        fieldNotesTitle:'Field Notes', fieldNotesBtn:'Begin',
        fieldNotes:['Three inscribed sites a day, then a bonus round on a living tradition. You are shown a photograph, not a name.',
                    'Tap the map where you think it is, then press Guess. Each guess reports its distance and bearing to the site, and whether you have the right continent and region.',
                    'Three guesses per site. Find the country and you take full marks at once; otherwise only your last guess scores, by how close it lands — and every miss uncovers another photograph.',
                    'Every entry you meet is accessioned into your collection.'],
        cbLabel:'Colour-blind marks', settingsTitle:'Settings',
+       cbNote:'How far off a guess was is shown by colour — blue is cold through to red, green is right. That is the one thing the game says only in colour, so this adds a shape to every mark as well: ○ ■ ◆ ▲ ●, coldest to warmest.',
        scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Northern',S:'Southern',E:'Eastern',W:'Western',C:'Central'},
        regionOf:(dir,cont)=>`${dir} ${cont}`,
        pointsFull:(p,max)=>`Full marks — <b>${p}</b> of ${max} points.`,
        pointsPartial:(p,max,c,km)=>`Your last guess, <b>${c}</b>, was ${km} km away — <b>${p}</b> of ${max} points.`,
-       seeResult:'See result', photoOf:(i,n)=>`photo ${i} of ${n}`, bonusBadge:'BONUS ROUND',
+       seeResult:'See result', shareBtn:'Copy result',
+       shareNote:'Share your result with friends — it copies the grid, not the answers.', photoOf:(i,n)=>`photo ${i} of ${n}`, bonusBadge:'BONUS ROUND',
        bonusIntro:'Bonus round — a living tradition, and one guess only.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
-       videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
+       learnLabel:'Learn more', linkWiki:'Wikipedia', linkData:'Data page',
+       linkOfficial:'Official listing', linkVideo:'Find videos \u2197', close:'Close' },
   fr:{ tagline:'trois sites et une tradition chaque jour', tapPrompt:'Touchez la carte pour placer votre proposition', tapAgain:'Touchez à nouveau pour la déplacer',
        confirmGuess:'Proposer', tapWater:'C’est en pleine eau — touchez un pays',
        tapUnknown:'Aucune entrée pour ce pays',
@@ -563,23 +584,26 @@ const UI = {
              perfect:['Note maximale','Une journée au score maximal'],
              hiddengem:['Œil aiguisé','Un trésor caché trouvé du premier coup'],
              flawless:['Sans faute','Toutes les manches d’une journée résolues'],
-             archivist:['Archiviste','25 entrées cataloguées'] },
+             archivist:(n,r)=>[`Archiviste ${r}`, `${n} entrées cataloguées`] },
        fieldNotesTitle:'Notes de terrain', fieldNotesBtn:'Commencer',
        fieldNotes:['Trois sites inscrits par jour, puis une manche bonus sur une tradition vivante. On vous montre une photographie, pas un nom.',
                    'Touchez la carte à l’endroit voulu, puis appuyez sur Proposer. Chaque proposition indique sa distance et sa direction, et si le continent et la région sont les bons.',
                    'Trois essais par site. Trouvez le pays et vous obtenez d’emblée la note maximale ; sinon seul votre dernier essai compte, selon sa proximité — et chaque échec dévoile une photographie de plus.',
                    'Chaque entrée rencontrée est inventoriée dans votre collection.'],
        cbLabel:'Repères daltoniens', settingsTitle:'Réglages',
+       cbNote:'L’éloignement d’une proposition est indiqué par la couleur : du bleu (froid) au rouge, le vert étant juste. C’est la seule information donnée uniquement par la couleur ; cette option ajoute donc une forme à chaque repère : ○ ■ ◆ ▲ ●, du plus froid au plus chaud.',
        scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Nord',S:'Sud',E:'Est',W:'Ouest',C:'Centre'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Note maximale — <b>${p}</b> points sur ${max}.`,
        pointsPartial:(p,max,c,km)=>`Votre dernière proposition, <b>${c}</b>, était à ${km} km — <b>${p}</b> points sur ${max}.`,
-       seeResult:'Voir le résultat', photoOf:(i,n)=>`photo ${i} sur ${n}`, bonusBadge:'MANCHE BONUS',
+       seeResult:'Voir le résultat', shareBtn:'Copier le résultat',
+       shareNote:'Partagez votre résultat — la grille est copiée, pas les réponses.', photoOf:(i,n)=>`photo ${i} sur ${n}`, bonusBadge:'MANCHE BONUS',
        bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
-       videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
+       learnLabel:'En savoir plus', linkWiki:'Wikipédia', linkData:'Fiche de données',
+       linkOfficial:'Fiche officielle', linkVideo:'Chercher des vidéos \u2197', close:'Fermer' },
   es:{ tagline:'tres sitios y una tradición cada día', tapPrompt:'Toca el mapa para colocar tu propuesta', tapAgain:'Toca otra vez para moverla',
        confirmGuess:'Proponer', tapWater:'Eso es mar abierto — toca un país',
        tapUnknown:'Sin entradas de ese país',
@@ -608,23 +632,26 @@ const UI = {
              perfect:['Nota máxima','Un día con la puntuación máxima'],
              hiddengem:['Ojo agudo','Una joya oculta hallada al primer intento'],
              flawless:['Sin fallos','Todas las rondas de un día resueltas'],
-             archivist:['Archivero','25 entradas catalogadas'] },
+             archivist:(n,r)=>[`Archivero ${r}`, `${n} entradas catalogadas`] },
        fieldNotesTitle:'Notas de campo', fieldNotesBtn:'Empezar',
        fieldNotes:['Tres sitios inscritos al día y después una ronda bonus sobre una tradición viva. Se te muestra una fotografía, no un nombre.',
                    'Toca el mapa donde creas que está y pulsa Proponer. Cada intento indica su distancia y rumbo, y si el continente y la región son correctos.',
                    'Tres intentos por sitio. Acierta el país y obtienes la nota máxima de inmediato; si no, solo cuenta tu última propuesta, según lo cerca que quede — y cada fallo descubre otra fotografía.',
                    'Cada entrada que encuentras se registra en tu colección.'],
        cbLabel:'Marcas para daltonismo', settingsTitle:'Ajustes',
+       cbNote:'Lo lejos que quedó una propuesta se indica con color: del azul (frío) al rojo, y verde si es correcta. Es lo único que el juego comunica solo con color, así que esta opción añade una forma a cada marca: ○ ■ ◆ ▲ ●, de más fría a más cálida.',
        scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Norte',S:'Sur',E:'Este',W:'Oeste',C:'Centro'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Nota máxima — <b>${p}</b> de ${max} puntos.`,
        pointsPartial:(p,max,c,km)=>`Tu última propuesta, <b>${c}</b>, estaba a ${km} km — <b>${p}</b> de ${max} puntos.`,
-       seeResult:'Ver resultado', photoOf:(i,n)=>`foto ${i} de ${n}`, bonusBadge:'RONDA BONUS',
+       seeResult:'Ver resultado', shareBtn:'Copiar resultado',
+       shareNote:'Comparte tu resultado — se copia la cuadrícula, no las respuestas.', photoOf:(i,n)=>`foto ${i} de ${n}`, bonusBadge:'RONDA BONUS',
        bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
-       videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
+       learnLabel:'Saber más', linkWiki:'Wikipedia', linkData:'Ficha de datos',
+       linkOfficial:'Ficha oficial', linkVideo:'Buscar vídeos \u2197', close:'Cerrar' }
 };
 /* The language a visitor gets, in order of what actually knows best: what they
    last chose here, then what their browser says, then English.
@@ -666,6 +693,7 @@ function normaliseEntry(e, countries){
   return {
     id: e.id, type: e.type, tier: e.tier, lat: e.lat, lng: e.lng,
     year: e.year, approx: e.approx, image: e.image,
+    qid: e.qid, siteId: e.siteId, wiki: e.wiki, officialUrl: e.officialUrl,
     photos: (e.photos && e.photos.length) ? e.photos : (e.image ? [e.image] : []),
     continentCode: e.continent,
     names: e.names,
@@ -999,6 +1027,8 @@ function streaks(){
 /* ---------- Achievements ----------
    Tied to what the player has actually seen of the world's heritage rather
    than to how often they open the page. Deliberately few. */
+const ARCHIVIST_TIERS = [5, 10, 25, 50, 100, 365];
+const ROMAN = ['I','II','III','IV','V','VI'];
 const ACHIEVEMENTS = [
   { id:'continents', test:()=> {
       const seen = new Set(Object.values(profile.collection).map(r=>r.continent).filter(Boolean));
@@ -1008,7 +1038,12 @@ const ACHIEVEMENTS = [
   { id:'hiddengem', test:()=> !!profile.gemFirstGuess },
   { id:'flawless',  test:()=> Object.values(profile.days).some(d =>
       d.statuses && d.statuses.length === N_ROUNDS && d.statuses.every(x=>x==='solved')) },
-  { id:'archivist', test:()=> Object.keys(profile.collection).length >= 25 }
+  // Tiered, because a single badge at twenty-five meant nothing happened for
+  // six days and then never again. Each threshold is its own distinction.
+  ...ARCHIVIST_TIERS.map(n => ({
+    id: 'archivist' + n, tier: n,
+    test: () => Object.keys(profile.collection).length >= n
+  }))
 ];
 
 function checkAchievements(){
@@ -1265,8 +1300,11 @@ function render(){
   img.alt = roundFinished() ? target.names[lang] : '';
   // Re-render with the same src doesn't refire load; catch the already-decoded case.
   if(img.complete && img.naturalWidth) box.classList.add('zoomable');
-  const cr = shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
-  document.getElementById('photoCredit').textContent = cr;
+  // Held back until the round is over. A photographer's name or a licence
+  // template routinely carries a country in it, which hands the player the
+  // answer from the corner of the picture.
+  document.getElementById('photoCredit').textContent =
+    (shot && roundFinished()) ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   renderPhotoCount(target);
 
   renderClues(target); renderHistory(); renderMapForRound(); renderRoundResult();
@@ -1283,24 +1321,52 @@ function photosOf(target){
   return (target && target.photos && target.photos.length) ? target.photos
        : (target && target.image ? [target.image] : []);
 }
-function photoIndexFor(target){
+/* How many photographs the player has earned: one to start, one more per
+   guess made, capped at what the entry has. */
+function unlockedCount(target){
   const n = photosOf(target).length;
-  if(!n) return 0;
-  // One more photo per guess made, and the last one stays once they run out.
-  return Math.min(currentGuesses().length, n - 1);
+  return n ? Math.min(currentGuesses().length + 1, n) : 0;
+}
+
+/* Which of them is on screen. Defaults to the newest, because the point of
+   unlocking one is to see it, but the player can page back through the ones
+   they have already earned -- an earlier shot is often the more useful clue,
+   and having it vanish behind the next guess was a waste of it. */
+let photoView = [0, 0, 0, 0];
+function photoIndexFor(target){
+  const unlocked = unlockedCount(target);
+  if(!unlocked) return 0;
+  return Math.min(photoView[state.round] || 0, unlocked - 1);
 }
 function currentPhoto(target){
   const ps = photosOf(target);
   return ps.length ? ps[photoIndexFor(target)] : null;
 }
+function showNewestPhoto(){
+  const tg = currentTarget();
+  photoView[state.round] = Math.max(0, unlockedCount(tg) - 1);
+}
+function stepPhoto(by){
+  const tg = currentTarget();
+  const unlocked = unlockedCount(tg);
+  photoView[state.round] =
+    Math.max(0, Math.min(photoIndexFor(tg) + by, unlocked - 1));
+  render();
+}
+
 function renderPhotoCount(target){
+  const nav = document.getElementById('photoNav');
   const el = document.getElementById('photoCount');
-  if(!el) return;
-  const ps = photosOf(target);
-  if(ps.length < 2){ el.textContent = ''; return; }
+  if(!nav || !el) return;
+  const unlocked = unlockedCount(target);
+  if(unlocked < 2){ nav.hidden = true; return; }
+  nav.hidden = false;
   const i = photoIndexFor(target);
-  el.textContent = t().photoOf(i + 1, ps.length);
-  el.classList.toggle('fresh', i > 0 && i === currentGuesses().length);
+  el.textContent = t().photoOf(i + 1, unlocked);
+  // Gold only while looking at the one the last guess just earned.
+  el.classList.toggle('fresh', i === unlocked - 1 && currentGuesses().length > 0);
+  document.getElementById('photoPrev').disabled = i <= 0;
+  document.getElementById('photoNext').disabled = i >= unlocked - 1;
 }
 
 function renderClues(target){
@@ -1427,7 +1493,7 @@ function renderRoundResult(){
     <button class="btn" id="nextBtn">${state.round + 1 >= N_ROUNDS ? T.seeResult : T.nextRound}</button>
     <button class="btn secondary" id="learnBtn">${T.learnMore}</button>`;
   document.getElementById('nextBtn').onclick = ()=>{
-    state.round++; saveState(); render();
+    state.round++; photoView[state.round] = 0; saveState(); render();
   };
   document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
   clearPending();
@@ -1624,7 +1690,8 @@ function renderFinal(){
     <div class="share-grid">${lines}</div>
     <p>${T.playTomorrow}</p>
     <div id="learnLinks"></div>
-    <button class="btn" id="shareBtn">Copy result</button>`;
+    <button class="btn" id="shareBtn">${T.shareBtn}</button>
+    <p class="share-note">${T.shareNote}</p>`;
   const linksBox = document.getElementById('learnLinks');
   targets.forEach(tg=>{
     const b = document.createElement('button');
@@ -1651,7 +1718,7 @@ function openLightbox(){
   document.getElementById('lightboxImg').alt = roundFinished() ? target.names[lang] : '';
   const shot = currentPhoto(target);
   document.getElementById('lightboxCredit').textContent =
-    shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
+    (shot && roundFinished()) ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   lightbox.classList.add('open');
 }
 function closeLightbox(){ lightbox.classList.remove('open'); }
@@ -1661,14 +1728,54 @@ lightbox.addEventListener('click', closeLightbox);
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeLightbox(); });
 
 /* ---------- Info modal ---------- */
+/* Where to go to actually learn about the thing.
+
+   No video is embedded and none is chosen for you. Picking one automatically
+   would mean a blind search over two thousand mostly obscure subjects, and a
+   confidently wrong video is worse than none -- so the video link opens a
+   search and you choose. The official listing is the better bet anyway: those
+   pages carry the nomination films and documents.
+
+   Everything here is built from fields the entry already has, so a link is
+   offered only when it will actually resolve. */
+function learnLinks(entry){
+  const T = t();
+  const out = [];
+  const a = (href, label) =>
+    `<a class="learn-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+
+  // The player's language first, then whatever article exists.
+  const w = entry.wiki || {};
+  const wlang = w[lang] ? lang : (w.en ? 'en' : (w.fr ? 'fr' : (w.es ? 'es' : null)));
+  if(wlang){
+    out.push(a(`https://${wlang}.wikipedia.org/wiki/${encodeURIComponent(w[wlang])}`,
+               T.linkWiki));
+  } else if(entry.qid){
+    // No article, but the data page lists every source we have.
+    out.push(a(`https://www.wikidata.org/wiki/${entry.qid}`, T.linkData));
+  }
+
+  if(entry.siteId){
+    out.push(a(`https://whc.unesco.org/en/list/${encodeURIComponent(entry.siteId)}`,
+               T.linkOfficial));
+  } else if(entry.officialUrl){
+    out.push(a(entry.officialUrl, T.linkOfficial));
+  }
+
+  const q = encodeURIComponent(
+    (entry.names.en || entry.names[lang] || '') + ' ' + (entry.country.en || ''));
+  out.push(a(`https://www.youtube.com/results?search_query=${q}`, T.linkVideo));
+  return out;
+}
+
 function openInfoModal(entry){
   const T = t();
   document.getElementById('modalTitle').textContent = entry.names[lang];
   document.getElementById('modalSub').textContent =
     [entry.country[lang], entry.category[lang], entry.year].filter(Boolean).join(' · ');
   document.getElementById('modalDesc').textContent = (entry.clue && entry.clue[lang]) || '';
-  document.getElementById('modalVideoLabel').textContent = T.videoLabel;
-  document.getElementById('modalVideoText').textContent = T.videoText;
+  document.getElementById('modalVideoLabel').textContent = T.learnLabel;
+  document.getElementById('modalLinks').innerHTML = learnLinks(entry).join('');
   document.getElementById('modalClose').textContent = T.close;
   document.getElementById('modalBackdrop').classList.add('open');
 }
@@ -1722,6 +1829,7 @@ function submitGuess(country){
   }
   saveState();
   clearPending();
+  showNewestPhoto();      // a guess just earned one; show what it bought
   render();
   // On a phone the verdict panel sits just below the fold, so a guess looked
   // like it had done nothing at all. 'nearest' scrolls only when it is
@@ -1796,6 +1904,9 @@ function handleMapTap(evt){
   renderMapForRound();                        // draw the provisional pin
 }
 document.getElementById('mapSvg').addEventListener('click', handleMapTap);
+
+document.getElementById('photoPrev').addEventListener('click', ()=> stepPhoto(-1));
+document.getElementById('photoNext').addEventListener('click', ()=> stepPhoto(1));
 
 document.getElementById('confirmGuess').addEventListener('click', ()=>{
   if(!pendingCountry) return;
@@ -1885,7 +1996,12 @@ function renderPassport(){
   }).join('');
   const ach = ACHIEVEMENTS.map(a=>{
     const got = profile.achievements.includes(a.id);
-    const [name, desc] = T.ach[a.id];
+    // Numbered, or six rows all called "Archivist" read as a bug rather than
+    // a ladder.
+    const entry = a.tier
+      ? T.ach.archivist(a.tier, ROMAN[ARCHIVIST_TIERS.indexOf(a.tier)])
+      : T.ach[a.id];
+    const [name, desc] = entry;
     return `<div class="ach${got ? '' : ' locked'}">
       <span class="seal">${got ? '★' : '·'}</span>
       <div><b>${name}</b><span>${desc}</span></div></div>`;
@@ -1902,7 +2018,8 @@ function renderPassport(){
      <div class="panel-head" style="margin-top:20px"><h2>${T.achTitle}</h2></div>
      <div class="ach-list">${ach}</div>
      <label class="cb-row"><input type="checkbox" id="cbToggle"
-       ${cbOn() ? 'checked' : ''}> ${T.cbLabel}</label>`;
+       ${cbOn() ? 'checked' : ''}> ${T.cbLabel}</label>
+     <p class="cb-note">${T.cbNote}</p>`;
   document.getElementById('cbToggle').onchange = e=>{
     profile.colorblind = e.target.checked; saveProfile(); applyColorblind(); render();
   };

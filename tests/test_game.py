@@ -284,12 +284,23 @@ def main():
             page.tap("#photoBox"); page.wait_for_timeout(300)
             check(page.locator("#lightbox").get_attribute("class").find("open") >= 0,
                   "tapping the photo opens the full frame")
-            # Licence and attribution must travel with the enlarged photo too.
-            check(page.locator("#lightboxCredit").inner_text().strip() != "",
-                  "viewer carries the credit + licence line")
+            # Credit is withheld while the round is live -- a photographer's
+            # name or a licence template routinely names a country, which would
+            # hand over the answer from the corner of the picture.
+            check(page.locator("#lightboxCredit").inner_text().strip() == "",
+                  "viewer withholds the credit during the round",
+                  page.locator("#lightboxCredit").inner_text())
             check(page.evaluate("document.getElementById('lightboxImg').src") ==
                   page.evaluate("document.getElementById('siteImg').src"),
                   "viewer shows the same photo")
+            # Once the round is over the licence and attribution must appear:
+            # they are a condition of using the photograph, not optional.
+            page.evaluate("document.getElementById('lightboxClose').click()")
+            page.wait_for_timeout(150)
+            page.evaluate("submitGuess(targetCountry())"); page.wait_for_timeout(250)
+            check(page.locator("#photoCredit").inner_text().strip() != "",
+                  "the credit appears once the round is over",
+                  page.locator("#photoCredit").inner_text())
             page.tap("#lightboxClose"); page.wait_for_timeout(300)
             check(page.locator("#lightbox").get_attribute("class").find("open") < 0,
                   "viewer closes")
