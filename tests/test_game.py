@@ -131,10 +131,16 @@ def main():
                 # reachable by pointing at it.
                 check(page.evaluate("!!LAND_SHAPES"), "country shapes loaded for hit-testing")
                 unreachable = page.evaluate("""
-                  () => COUNTRIES.filter(c => !c.iso || !LAND_SHAPES[c.iso]).length
+                  () => COUNTRIES.filter(c => {
+                    if(!c.iso) return true;
+                    if(LAND_SHAPES[c.iso]) return false;
+                    const p = project(c.lat, c.lng);
+                    const near = countryNear(p.x, p.y);
+                    return !(near && near.id === c.id);
+                  }).map(c => c.names.en)
                 """)
-                check(unreachable == 0, "every guessable country is on the map",
-                      f"{unreachable} unreachable")
+                check(not unreachable, "every guessable country can be tapped",
+                      ", ".join(unreachable[:5]))
 
                 # A tap proposes; it must not spend a guess on its own.
                 wrongC = "COUNTRIES.find(c=>c.names.en!==targets[0].country.en)"

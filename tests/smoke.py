@@ -103,10 +103,30 @@ def play_day(page, base, day, width, label):
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.
     check(page.evaluate("!!LAND_SHAPES"), f"{label}: country shapes loaded")
-    unreachable = page.evaluate(
-        "() => COUNTRIES.filter(c => !c.iso || !LAND_SHAPES[c.iso]).length")
-    check(unreachable == 0, f"{label}: every guessable country is on the map",
-          f"{unreachable} unreachable")
+    # Reachable means a tap can actually select it: a polygon to land in, or
+    # -- for a country too small to have one, like Vatican City -- close
+    # enough to its centroid for the snap to catch it.
+    unreachable = page.evaluate("""
+      () => COUNTRIES.filter(c => {
+        if(!c.iso) return true;
+        if(LAND_SHAPES[c.iso]) return false;
+        // The path a real tap takes, not countryNear in isolation: the
+        // polygon test runs first and can answer with the enclosing country.
+        const p = project(c.lat, c.lng);
+        const got = countryByIso(isoAt(p.x, p.y)) || countryNear(p.x, p.y);
+        return !(got && got.id === c.id);
+      }).map(c => c.names.en)
+    """)
+    check(not unreachable, f"{label}: every guessable country can be tapped",
+          ", ".join(unreachable[:5]))
+    # And no entry may be left with an answer nobody can give.
+    unwinnable = page.evaluate("""
+      () => { const ok = new Set(COUNTRIES.map(c => c.id));
+              return POOL.filter(e => !(e.countryIds || []).some(id => ok.has(id)))
+                         .map(e => e.names.en); }
+    """)
+    check(not unwinnable, f"{label}: no entry has an unreachable answer",
+          ", ".join(unwinnable[:5]))
     # Open water is not a guess, and must not spend one.
     before = page.evaluate("state.guesses[0].length")
     page.evaluate(TAP_JS, {"lat": 0, "lng": -140})

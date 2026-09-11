@@ -1866,10 +1866,54 @@ document.getElementById('fnClose').addEventListener('click', ()=>{
 });
 
 /* ---------- Init ---------- */
+/* ---------- Answers have to be reachable ----------
+   The guess is a tap, so a country the map cannot resolve a tap to cannot be
+   an answer -- a round whose only answer is unreachable is unwinnable. The
+   pipeline already drops countries with no ISO code, but it does not know what
+   the map can actually hit: Vatican City is 400 metres across, has no polygon
+   at this resolution, and sits inside Italy, so every tap on it returns Italy.
+
+   Enforced here rather than in the pipeline because this is the only place
+   that has both the dataset and the geometry, and it re-checks itself whenever
+   either changes. */
+function pruneUnreachable(){
+  if(!LAND_SHAPES || !COUNTRIES.length) return;
+  const ok = new Set();
+  for(const c of COUNTRIES){
+    if(!c.iso) continue;
+    if(LAND_SHAPES[c.iso]){ ok.add(c.id); continue; }   // tap inside it
+    const p = project(c.lat, c.lng);                     // or snap to it
+    const got = countryByIso(isoAt(p.x, p.y)) || countryNear(p.x, p.y);
+    if(got && got.id === c.id) ok.add(c.id);
+  }
+  const lostCountries = COUNTRIES.filter(c => !ok.has(c.id)).map(c => c.names.en);
+  COUNTRIES = COUNTRIES.filter(c => ok.has(c.id));
+  const before = POOL.length;
+  POOL = POOL.filter(e => {
+    const ids = (e.countryIds || []).filter(id => ok.has(id));
+    if(!ids.length) return false;
+    // Keep the entry, but only the answers a player could actually give.
+    if(ids.length !== (e.countryIds || []).length){
+      e.countryNames = e.countryNames.filter((_, i) => ok.has(e.countryIds[i]));
+      e.countryIds = ids;
+      if(e.countryNames.length) e.country = e.countryNames[0];
+    }
+    return true;
+  });
+  if(lostCountries.length || POOL.length !== before){
+    console.warn('Heritle: dropped ' + lostCountries.length +
+      ' country/countries the map cannot resolve (' + lostCountries.join(', ') +
+      ') and ' + (before - POOL.length) + ' entry/entries left with no reachable answer.');
+  }
+  BY_ID = new Map(POOL.map(d => [d.id, d]));
+  computeTargets();
+}
+
 // Both in parallel: the map geometry is independent of the dataset, and
 // neither blocks the other. loadLand never rejects -- a missing file falls
 // back to the built-in outline -- so the game still starts if it is absent.
 Promise.all([loadDataset(), loadLand()]).then(()=>{
+  pruneUnreachable();
   applyColorblind();
   if(isPractice){
     const b = document.createElement('div');
