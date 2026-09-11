@@ -44,6 +44,13 @@ def serve(root):
     return httpd, httpd.server_address[1]
 
 
+def T_BONUS_INTRO_SHOWN(page):
+    """The one-guess rule has to be visible before the guess is spent."""
+    return page.evaluate("""
+      () => document.getElementById('mapReadout').textContent === t().bonusIntro
+    """)
+
+
 def play_day(page, base, day, width, label):
     """One full day: round 1 won, round 2 lost on purpose, round 3 solved."""
     errors, bad_requests = [], []
@@ -72,7 +79,7 @@ def play_day(page, base, day, width, label):
     else:
         check(page.evaluate("dayIndex === todayIndex && !isPractice"),
               f"{label}: no ?day means today, and it counts")
-    check(page.evaluate("targets.length") == 3, f"{label}: three targets chosen")
+    check(page.evaluate("targets.length") == 4, f"{label}: four targets chosen")
     # The detailed geometry is fetched, not inlined, so a missing or
     # canvas-mismatched file degrades silently to the coarse outline.
     check(page.evaluate("LAND_PATH !== null"), f"{label}: detailed map geometry loaded")
@@ -93,7 +100,8 @@ def play_day(page, base, day, width, label):
           f"world r={r_world} zoomed r={r_zoom}")
 
     # ---- every language renders ----
-    for code, needle in (("fr", "devinettes"), ("es", "adivinanzas"), ("en", "heritage")):
+    # Needles from each tagline that do not appear in the other two.
+    for code, needle in (("fr", "chaque jour"), ("es", "cada día"), ("en", "each day")):
         page.click(f".lang-btn[data-lang='{code}']")
         page.wait_for_timeout(120)
         check(needle in page.locator("#tagline").inner_text().lower(),
@@ -119,37 +127,77 @@ def play_day(page, base, day, width, label):
           f"{label}: the verdict is on screen without scrolling",
           f"bottom={rbox and round(rbox['y'] + rbox['height'])} vh={vh}")
 
-    # ---- round 1: win ----
+    # ---- round 1: win outright ----
     page.evaluate("submitGuess(targetCountry())")
     page.wait_for_timeout(250)
     check(page.evaluate("state.roundStatus[0]") == "solved", f"{label}: round 1 won")
-    page.evaluate("document.getElementById('skipBonusBtn')?.click()")
-    page.wait_for_timeout(150)
+    check(abs(page.evaluate("state.roundScore[0]") - page.evaluate("ROUND_PLAN[0].points")) < 0.01,
+          f"{label}: naming the country takes full marks",
+          str(page.evaluate("state.roundScore[0]")))
     page.click("#nextBtn"); page.wait_for_timeout(250)
 
-    # ---- round 2: six wrong guesses, on purpose ----
+    # ---- round 2: three wrong guesses -- the last one is what scores ----
+    allowed = page.evaluate("guessesAllowed(1)")
+    check(allowed == 3, f"{label}: three guesses on a heritage round", str(allowed))
     wrongs = page.evaluate("""
       () => COUNTRIES.filter(c => c.names.en !== targets[1].country.en)
-                     .slice(0, 6).map(c => c.id)
+                     .slice(0, 3).map(c => c.id)
     """)
-    check(len(wrongs) == 6, f"{label}: six wrong countries available", str(len(wrongs)))
+    check(len(wrongs) == 3, f"{label}: three wrong countries available", str(len(wrongs)))
     for cid in wrongs:
         page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", cid)
         page.wait_for_timeout(60)
-    check(page.evaluate("state.roundStatus[1]") == "failed", f"{label}: round 2 lost",
+    check(page.evaluate("state.roundStatus[1]") == "failed", f"{label}: round 2 missed",
           str(page.evaluate("state.roundStatus[1]")))
-    check(page.evaluate("state.roundScore[1]") == 0, f"{label}: a lost round scores 0")
+    check(page.evaluate("state.guesses[1].length") == 3,
+          f"{label}: the round ends after its allowance")
+    # The last guess scores by proximity, so a miss is worth something but
+    # never the full round.
+    expected = page.evaluate("""
+      () => { const g = state.guesses[1][state.guesses[1].length - 1];
+              return ROUND_PLAN[1].points * proximity(g.km, false); }
+    """)
+    check(abs(page.evaluate("state.roundScore[1]") - expected) < 0.01,
+          f"{label}: the last guess is the one that scores",
+          f"{page.evaluate('state.roundScore[1]')} vs {expected}")
+    check(page.evaluate("state.roundScore[1]") < page.evaluate("ROUND_PLAN[1].points"),
+          f"{label}: a missed round scores less than full marks")
     page.click("#nextBtn"); page.wait_for_timeout(250)
 
-    # ---- round 3: solve ----
+    # ---- round 3: a wrong guess first, then solve -- still full marks ----
+    w = page.evaluate("() => COUNTRIES.find(c => c.names.en !== targets[2].country.en).id")
+    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", w)
+    page.wait_for_timeout(120)
     page.evaluate("submitGuess(targetCountry())")
     page.wait_for_timeout(250)
     check(page.evaluate("state.roundStatus[2]") == "solved", f"{label}: round 3 solved")
-    page.evaluate("document.getElementById('skipBonusBtn')?.click()")
-    page.wait_for_timeout(150)
+    check(abs(page.evaluate("state.roundScore[2]") - page.evaluate("ROUND_PLAN[2].points")) < 0.01,
+          f"{label}: solving late still takes full marks")
+    page.click("#nextBtn"); page.wait_for_timeout(250)
+
+    # ---- round 4: the intangible bonus round, one guess only ----
+    # If the pool has no traditions in it the bonus round silently falls back
+    # to a fourth site, so check the pool first -- otherwise the failure reads
+    # as a game bug when it is a dataset that predates the intangible pool.
+    check(page.evaluate("POOL.some(d => d.type === 'immaterial')"),
+          f"{label}: the dataset carries intangible entries")
+    check(page.evaluate("targets[3].type") == "immaterial",
+          f"{label}: the bonus round is an intangible element",
+          str(page.evaluate("targets[3].type")))
+    check(page.evaluate("guessesAllowed(3)") == 1,
+          f"{label}: the bonus round allows a single guess",
+          str(page.evaluate("guessesAllowed(3)")))
+    check(T_BONUS_INTRO_SHOWN(page), f"{label}: the bonus round says so before the guess")
+    w = page.evaluate("() => COUNTRIES.find(c => c.names.en !== targets[3].country.en).id")
+    page.evaluate("id => submitGuess(COUNTRIES.find(c => c.id === id))", w)
+    page.wait_for_timeout(300)
+    check(page.evaluate("state.roundStatus[3]") == "failed", f"{label}: bonus round resolved")
+    check(page.evaluate("state.guesses[3].length") == 1,
+          f"{label}: the bonus round ends after one guess",
+          str(page.evaluate("state.guesses[3].length")))
     page.click("#nextBtn"); page.wait_for_timeout(400)
 
-    # ---- final screen: 1 win / 1 loss / 1 solved ----
+    # ---- final screen ----
     check(not page.locator("#finalResult").is_hidden(), f"{label}: final screen shown")
     # The badge row is emptied on this screen; an empty bordered pill used to
     # draw a small box above the summary.
@@ -158,12 +206,14 @@ def play_day(page, base, day, width, label):
           f"{label}: no empty badge box above the summary")
     grid = page.locator("#finalResult .share-grid").inner_text()
     check("—" in grid or len(grid.strip()) > 0, f"{label}: share grid rendered", repr(grid))
-    check(grid.count("\n") == 2, f"{label}: share grid has one line per round", repr(grid))
+    check(grid.count("\n") == 3, f"{label}: share grid has one line per round", repr(grid))
     score = page.evaluate("totalScore()")
-    check(0 < score < 100, f"{label}: score reflects one lost round", str(score))
+    mx = page.evaluate("MAX_SCORE")
+    check(mx == 150, f"{label}: the day is scored out of 150", str(mx))
+    check(0 < score < mx, f"{label}: score reflects the missed rounds", f"{score}/{mx}")
     statuses = page.evaluate("state.roundStatus")
-    check(statuses == ["solved", "failed", "solved"],
-          f"{label}: 1 win / 1 loss / 1 solved", str(statuses))
+    check(statuses == ["solved", "failed", "solved", "failed"],
+          f"{label}: 2 solved / 2 missed", str(statuses))
 
     check(not errors, f"{label}: no console errors", "; ".join(errors[:3]))
     check(not bad_requests, f"{label}: no broken script/data requests",
@@ -192,6 +242,12 @@ def main():
             subprocess.run([sys.executable, os.path.join(REPO, "tests", "make_synthetic_dataset.py"),
                             os.path.join(root, "data", "dataset.json")],
                            check=True, stdout=subprocess.DEVNULL)
+            # The map geometry is real either way -- it is independent of the
+            # dataset, and without it the run reports a missing-file failure
+            # that says nothing about the game.
+            land = os.path.join(REPO, "data", "land.json")
+            if os.path.exists(land):
+                shutil.copy(land, os.path.join(root, "data", "land.json"))
         httpd, port = serve(root)
         base = f"http://127.0.0.1:{port}/"
 

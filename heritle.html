@@ -40,6 +40,14 @@
   .round-pip.current{border-color:var(--gold);color:var(--cream);}
   .round-pip.done-solved{background:var(--correct);border-color:var(--correct);color:var(--navy);}
   .round-pip.done-failed{background:var(--heat-hot);border-color:var(--heat-hot);color:var(--cream);}
+  /* The bonus round is a different kind of thing, not a fourth site: dashed
+     until played, so the row reads as three-plus-one. Placed after the state
+     rules above so a played bonus pip still shows its result colour. */
+  .round-pip.bonus{border-style:dashed;color:var(--gold);}
+  .round-pip.bonus.done-solved, .round-pip.bonus.done-failed{border-style:solid;}
+  .round-pip.bonus.done-solved{color:var(--navy);}
+
+  .counter-note{margin-top:4px;font-size:0.66rem;color:var(--ink-dim);opacity:0.8;}
 
   .meta-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
     font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--ink-dim);}
@@ -454,13 +462,13 @@ const FALLBACK_DATA = [
 
 /* ---------- i18n ---------- */
 const UI = {
-  en:{ tagline:'three heritage guesses a day, scored out of 100', placeholder:'Type a country…',
+  en:{ tagline:'three sites and a tradition each day', placeholder:'Type a country…',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
        readoutStart:'Make your first guess', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
+       guessCount:(n,max)=>`${n} / ${max} guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
        win:'Found it', winSub:(n)=>`Solved in ${n} guess${n===1?'':'es'}.`, lose:'Round over',
        loseSub:'The answer was:', nextRound:'Next round', learnMore:'Learn more',
-       finalTitle:'Today’s Heritle', finalSub:(s)=>`Score: ${s} / 100`, playTomorrow:'Come back tomorrow for three new ones.',
+       finalTitle:'Today’s Heritle', finalSub:(s,max)=>`Score: ${s} / ${max}`, playTomorrow:'Come back tomorrow for three new sites and a new tradition.',
        tier:{1:'Widely recognized',2:'Moderately known',3:'Hidden gem'},
        photoFallback:'Photo not yet loaded — drop images/{id}.jpg in from the data pipeline.',
        
@@ -477,32 +485,33 @@ const UI = {
        nextIn:'Next inscription in', backToToday:'Back to today',
        achTitle:'Distinctions',
        ach:{ continents:['Circumnavigator','One entry catalogued on every continent'],
-             perfect:['Full marks','A day scored 100 / 100'],
+             perfect:['Full marks','A day scored the maximum'],
              hiddengem:['Sharp eye','A hidden gem found on the first guess'],
-             flawless:['Clean sweep','All three rounds solved in one day'],
+             flawless:['Clean sweep','Every round of a day solved'],
              archivist:['Archivist','25 entries catalogued'] },
        fieldNotesTitle:'Field Notes', fieldNotesBtn:'Begin',
-       fieldNotes:['Three inscribed sites a day. You are shown a photograph, not a name.',
+       fieldNotes:['Three inscribed sites a day, then a bonus round on a living tradition. You are shown a photograph, not a name.',
                    'Name the country it stands in. Each guess reports its distance and bearing to the site, and whether you have the right continent and region.',
-                   'Find the country and the entry is revealed, then pin the exact spot on the map for a precision bonus.',
+                   'Three guesses per site. Name the country and you take full marks at once; otherwise only your last guess scores, and it scores by how close it lands.',
                    'Every entry you meet is accessioned into your collection.'],
        cbLabel:'Colour-blind marks', settingsTitle:'Settings',
-       scoreOf:(s)=>`${s} / 100`,
+       scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Northern',S:'Southern',E:'Eastern',W:'Western',C:'Central'},
        regionOf:(dir,cont)=>`${dir} ${cont}`,
-       bonusPrompt:'Bonus — tap the map to pin the exact spot',
-       bonusSkip:'Skip bonus', bonusConfirm:'Confirm pin',
-       bonusResult:(km,pts)=>`<b>${km} km</b> off — +${pts} bonus`,
-       bonusNone:'No bonus taken.',
+       pointsFull:(p,max)=>`Full marks — <b>${p}</b> of ${max} points.`,
+       pointsPartial:(p,max,c,km)=>`Your last guess, <b>${c}</b>, was ${km} km away — <b>${p}</b> of ${max} points.`,
+       seeResult:'See result', bonusBadge:'BONUS ROUND',
+       bonusIntro:'Bonus round — a living tradition, and one guess only.',
+       lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
-  fr:{ tagline:'trois devinettes patrimoniales par jour, notées sur 100', placeholder:'Entrez un pays…',
+  fr:{ tagline:'trois sites et une tradition chaque jour', placeholder:'Entrez un pays…',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
        readoutStart:'Faites votre première proposition', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
+       guessCount:(n,max)=>`${n} / ${max} essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
        win:'Trouvé', winSub:(n)=>`Résolu en ${n} essai${n===1?'':'s'}.`, lose:'Manche terminée',
        loseSub:'La réponse était :', nextRound:'Manche suivante', learnMore:'En savoir plus',
-       finalTitle:'L’Heritle du jour', finalSub:(s)=>`Score : ${s} / 100`, playTomorrow:'Revenez demain pour trois nouvelles devinettes.',
+       finalTitle:'L’Heritle du jour', finalSub:(s,max)=>`Score : ${s} / ${max}`, playTomorrow:'Revenez demain pour trois nouveaux sites et une nouvelle tradition.',
        tier:{1:'Largement reconnu',2:'Assez connu',3:'Trésor caché'},
        photoFallback:'Photo pas encore chargée — ajoutez images/{id}.jpg via le pipeline de données.',
        
@@ -519,32 +528,33 @@ const UI = {
        nextIn:'Prochaine inscription dans', backToToday:'Revenir à aujourd’hui',
        achTitle:'Distinctions',
        ach:{ continents:['Tour du monde','Une entrée cataloguée sur chaque continent'],
-             perfect:['Note maximale','Une journée à 100 / 100'],
+             perfect:['Note maximale','Une journée au score maximal'],
              hiddengem:['Œil aiguisé','Un trésor caché trouvé du premier coup'],
-             flawless:['Sans faute','Les trois manches résolues le même jour'],
+             flawless:['Sans faute','Toutes les manches d’une journée résolues'],
              archivist:['Archiviste','25 entrées cataloguées'] },
        fieldNotesTitle:'Notes de terrain', fieldNotesBtn:'Commencer',
-       fieldNotes:['Trois sites inscrits par jour. On vous montre une photographie, pas un nom.',
+       fieldNotes:['Trois sites inscrits par jour, puis une manche bonus sur une tradition vivante. On vous montre une photographie, pas un nom.',
                    'Nommez le pays où il se trouve. Chaque proposition indique sa distance et sa direction, et si le continent et la région sont les bons.',
-                   'Trouvez le pays et l’entrée est révélée, puis placez le point exact sur la carte pour un bonus de précision.',
+                   'Trois essais par site. Trouvez le pays et vous obtenez d’emblée la note maximale ; sinon seul votre dernier essai compte, et il compte selon sa proximité.',
                    'Chaque entrée rencontrée est inventoriée dans votre collection.'],
        cbLabel:'Repères daltoniens', settingsTitle:'Réglages',
-       scoreOf:(s)=>`${s} / 100`,
+       scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Nord',S:'Sud',E:'Est',W:'Ouest',C:'Centre'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
-       bonusPrompt:'Bonus — touchez la carte pour placer le point exact',
-       bonusSkip:'Passer le bonus', bonusConfirm:'Valider le point',
-       bonusResult:(km,pts)=>`à <b>${km} km</b> — +${pts} bonus`,
-       bonusNone:'Pas de bonus.',
+       pointsFull:(p,max)=>`Note maximale — <b>${p}</b> points sur ${max}.`,
+       pointsPartial:(p,max,c,km)=>`Votre dernière proposition, <b>${c}</b>, était à ${km} km — <b>${p}</b> points sur ${max}.`,
+       seeResult:'Voir le résultat', bonusBadge:'MANCHE BONUS',
+       bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
+       lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
-  es:{ tagline:'tres adivinanzas patrimoniales al día, puntuadas sobre 100', placeholder:'Escribe un país…',
+  es:{ tagline:'tres sitios y una tradición cada día', placeholder:'Escribe un país…',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
        readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
-       guessCount:(n)=>`${n} / 6 intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
+       guessCount:(n,max)=>`${n} / ${max} intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
        win:'Acertado', winSub:(n)=>`Resuelto en ${n} intento${n===1?'':'s'}.`, lose:'Ronda terminada',
        loseSub:'La respuesta era:', nextRound:'Siguiente ronda', learnMore:'Saber más',
-       finalTitle:'El Heritle de hoy', finalSub:(s)=>`Puntuación: ${s} / 100`, playTomorrow:'Vuelve mañana para tres nuevas rondas.',
+       finalTitle:'El Heritle de hoy', finalSub:(s,max)=>`Puntuación: ${s} / ${max}`, playTomorrow:'Vuelve mañana para tres sitios nuevos y una nueva tradición.',
        tier:{1:'Ampliamente reconocido',2:'Moderadamente conocido',3:'Joya oculta'},
        photoFallback:'Foto aún no cargada — añade images/{id}.jpg desde el pipeline de datos.',
        
@@ -561,23 +571,24 @@ const UI = {
        nextIn:'Próxima inscripción en', backToToday:'Volver a hoy',
        achTitle:'Distinciones',
        ach:{ continents:['Vuelta al mundo','Una entrada catalogada en cada continente'],
-             perfect:['Nota máxima','Un día con 100 / 100'],
+             perfect:['Nota máxima','Un día con la puntuación máxima'],
              hiddengem:['Ojo agudo','Una joya oculta hallada al primer intento'],
-             flawless:['Sin fallos','Las tres rondas resueltas en un día'],
+             flawless:['Sin fallos','Todas las rondas de un día resueltas'],
              archivist:['Archivero','25 entradas catalogadas'] },
        fieldNotesTitle:'Notas de campo', fieldNotesBtn:'Empezar',
-       fieldNotes:['Tres sitios inscritos al día. Se te muestra una fotografía, no un nombre.',
+       fieldNotes:['Tres sitios inscritos al día y después una ronda bonus sobre una tradición viva. Se te muestra una fotografía, no un nombre.',
                    'Nombra el país donde está. Cada intento indica su distancia y rumbo, y si el continente y la región son correctos.',
-                   'Acierta el país y la entrada se revela; después marca el punto exacto en el mapa para un bonus de precisión.',
+                   'Tres intentos por sitio. Acierta el país y obtienes la nota máxima de inmediato; si no, solo cuenta tu última propuesta, y cuenta según lo cerca que quede.',
                    'Cada entrada que encuentras se registra en tu colección.'],
        cbLabel:'Marcas para daltonismo', settingsTitle:'Ajustes',
-       scoreOf:(s)=>`${s} / 100`,
+       scoreOf:(s,max)=>`${s} / ${max}`,
        regions:{N:'Norte',S:'Sur',E:'Este',W:'Oeste',C:'Centro'},
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
-       bonusPrompt:'Bonus — toca el mapa para marcar el punto exacto',
-       bonusSkip:'Omitir bonus', bonusConfirm:'Confirmar punto',
-       bonusResult:(km,pts)=>`a <b>${km} km</b> — +${pts} bonus`,
-       bonusNone:'Sin bonus.',
+       pointsFull:(p,max)=>`Nota máxima — <b>${p}</b> de ${max} puntos.`,
+       pointsPartial:(p,max,c,km)=>`Tu última propuesta, <b>${c}</b>, estaba a ${km} km — <b>${p}</b> de ${max} puntos.`,
+       seeResult:'Ver resultado', bonusBadge:'RONDA BONUS',
+       bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
+       lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
 };
@@ -687,15 +698,22 @@ function pickForDay(pool, tier){
   return pool[Math.abs(h) % pool.length];
 }
 
-/* Each day's three rounds: which type, and how obscure.
-   Two material to one intangible tracks the pools (~1,270 sites to ~850
-   elements), so neither runs dry ahead of the other, and the tiers ramp from
-   widely recognised to hidden gem across the day. */
+/* Each day: three World Heritage sites, ramping from widely recognised to
+   hidden gem, then one intangible element as a bonus round.
+
+   The bonus round gets a single guess, so it is drawn from tier 1 -- there is
+   no room to narrow it down, and a hidden-gem tradition on one guess is a
+   coin toss rather than a puzzle. */
 const ROUND_PLAN = [
-  { type: 'material', tier: 1 },
-  { type: 'material', tier: 2 },
-  { type: 'material', tier: 3 }
+  { type: 'material',   tier: 1, guesses: 3, points: 100/3 },
+  { type: 'material',   tier: 2, guesses: 3, points: 100/3 },
+  { type: 'material',   tier: 3, guesses: 3, points: 100/3 },
+  { type: 'immaterial', tier: 1, guesses: 1, points: 50, bonus: true }
 ];
+const N_ROUNDS = ROUND_PLAN.length;
+const MAX_SCORE = Math.round(ROUND_PLAN.reduce((a, r) => a + r.points, 0));
+function roundPlan(i){ return ROUND_PLAN[i] || ROUND_PLAN[0]; }
+function guessesAllowed(i){ return roundPlan(i).guesses; }
 
 function computeTargets(){
   BY_ID = new Map(POOL.map(d => [d.id, d]));
@@ -783,9 +801,13 @@ async function loadDataset(){
    the game no longer contains and no longer awards. Carrying that forward
    would leave accession numbers nobody can re-earn and archive rows that lead
    nowhere, so a generation bump clears everything written before the change.
+   Bumped again for the scoring rework: days are four rounds now, not three,
+   and scored out of 150 rather than 100, so a stored day's score and status
+   list mean something different from what they meant when they were written.
+
    Bump this only when stored data genuinely cannot be reconciled: it throws
    away real play. */
-const STORAGE_GEN = '2';
+const STORAGE_GEN = '3';
 const GEN_KEY = 'heritle-gen';
 try{
   if(localStorage.getItem(GEN_KEY) !== STORAGE_GEN){
@@ -799,11 +821,17 @@ try{
 /* ---------- State ---------- */
 const STORAGE_KEY = `heritle-${dayIndex}`;
 let state = JSON.parse(localStorage.getItem(STORAGE_KEY) || JSON.stringify({
-  round: 0, guesses: [[],[],[]], roundStatus: [null,null,null], roundScore: [0,0,0]
+  round: 0,
+  guesses: ROUND_PLAN.map(()=>[]),
+  roundStatus: ROUND_PLAN.map(()=>null),
+  roundScore: ROUND_PLAN.map(()=>0)
 }));
-// Fields added after a player may already have saved state for today.
-if(!Array.isArray(state.bonusKm)) state.bonusKm = [null,null,null];
-if(typeof state.bonusOpen !== 'boolean') state.bonusOpen = false;
+// A save written before the round count changed would be short by a round and
+// index past the end of its own arrays. The generation bump below clears those,
+// but pad defensively rather than trusting it.
+while(state.guesses.length     < N_ROUNDS) state.guesses.push([]);
+while(state.roundStatus.length < N_ROUNDS) state.roundStatus.push(null);
+while(state.roundScore.length  < N_ROUNDS) state.roundScore.push(0);
 function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 /* ---------- Profile ----------
@@ -898,10 +926,10 @@ const ACHIEVEMENTS = [
       const seen = new Set(Object.values(profile.collection).map(r=>r.continent).filter(Boolean));
       return ['EU','AS','AF','NA','SA','OC'].every(c=>seen.has(c));
     } },
-  { id:'perfect',   test:()=> Object.values(profile.days).some(d=>d.score >= 100) },
+  { id:'perfect',   test:()=> Object.values(profile.days).some(d=>d.score >= MAX_SCORE) },
   { id:'hiddengem', test:()=> !!profile.gemFirstGuess },
   { id:'flawless',  test:()=> Object.values(profile.days).some(d =>
-      d.statuses && d.statuses.length === 3 && d.statuses.every(x=>x==='solved')) },
+      d.statuses && d.statuses.length === N_ROUNDS && d.statuses.every(x=>x==='solved')) },
   { id:'archivist', test:()=> Object.keys(profile.collection).length >= 25 }
 ];
 
@@ -951,7 +979,20 @@ const heatColorVar = { correct:'var(--correct)', hot:'var(--heat-hot)', close:'v
 const heatEmoji = { correct:'✅', hot:'🟥', close:'🟧', mid:'🟨', far:'🟦' };
 const compassDirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 function dirLabel(deg){ return compassDirs[Math.round(deg/22.5) % 16]; }
-const GUESS_FRACTIONS = [1, 0.85, 0.70, 0.55, 0.40, 0.25]; // index 0 = solved on guess 1
+/* ---------- Scoring ----------
+   Distance-based rather than all-or-nothing: naming the right country takes
+   the round's full points, and anything else is worth what its proximity
+   earns. 2000 km is the half-life-ish scale -- a neighbouring country keeps
+   most of the points, the wrong continent keeps almost none.
+
+   A round ends the moment full points are earned. Otherwise it runs its full
+   allowance and the LAST guess is the one that scores: the earlier ones buy
+   information, not points, so a third guess is a commitment rather than a
+   free extra try. */
+const SCORE_SCALE_KM = 2000;
+function proximity(km, correctCountry){
+  return correctCountry ? 1 : Math.exp(-km / SCORE_SCALE_KM);
+}
 
 /* ---------- Map ---------- */
 /* Real coastlines: Natural Earth land data via world-atlas (Mike Bostock, ISC licence),
@@ -1069,23 +1110,33 @@ function render(){
 
   // rounds row
   const rr = document.getElementById('roundsRow'); rr.innerHTML = '';
-  for(let i=0;i<3;i++){
+  for(let i=0;i<N_ROUNDS;i++){
     const pip = document.createElement('div');
     let cls = 'round-pip';
+    if(roundPlan(i).bonus) cls += ' bonus';
     if(state.roundStatus[i] === 'solved') cls += ' done-solved';
     else if(state.roundStatus[i] === 'failed') cls += ' done-failed';
     else if(i === state.round) cls += ' current';
-    pip.className = cls; pip.textContent = i+1;
+    pip.className = cls;
+    // The bonus round is marked rather than numbered: it is not a fourth site.
+    pip.textContent = roundPlan(i).bonus ? '\u2605' : i+1;
     rr.appendChild(pip);
   }
 
-  if(state.round >= 3){ renderFinal(); return; }
+  if(state.round >= N_ROUNDS){ renderFinal(); return; }
 
   const target = currentTarget();
   document.querySelector('.meta-row').style.display = '';   // renderFinal hides it
   document.getElementById('modeBadge').textContent = target.type==='material' ? T.modeMaterial : T.modeImmaterial;
-  document.getElementById('scoreBadge').textContent = `Σ ${totalScore()} / 100`;
-  document.getElementById('guessCounter').textContent = T.guessCount(currentGuesses().length);
+  document.getElementById('scoreBadge').textContent = `\u03a3 ${T.scoreOf(totalScore(), MAX_SCORE)}`;
+  const counter = document.getElementById('guessCounter');
+  counter.textContent = T.guessCount(currentGuesses().length, guessesAllowed(state.round));
+  if(guessesAllowed(state.round) > 1 && !roundFinished()){
+    const note = document.createElement('div');
+    note.className = 'counter-note';
+    note.textContent = T.lastCounts;
+    counter.appendChild(note);
+  }
 
   // photo
   const img = document.getElementById('siteImg'), fb = document.getElementById('photoFallback');
@@ -1168,20 +1219,17 @@ function renderMapForRound(){
     const e = COUNTRIES.find(c=>c.id===g.id);
     if(e) addPin(e.lat, e.lng, g.bucket, i===currentGuesses().length-1);
   });
-  if(roundFinished()){
-    const b = state.bonusKm[state.round];
-    if(b) addPin(b.lat, b.lng, 'mid', false);   // where the player pinned
-    addTargetPin(currentTarget().lat, currentTarget().lng);
-  }
-  document.getElementById('mapSvg').style.cursor =
-    (state.bonusOpen && roundFinished()) ? 'crosshair' : '';
+  // Nothing to spoil any more: the round is scored by the guesses themselves,
+  // so the site is marked as soon as the round is over.
+  if(roundFinished()) addTargetPin(currentTarget().lat, currentTarget().lng);
   const T = t();
   const readout = document.getElementById('mapReadout');
   const gs = currentGuesses();
   if(!gs.length){
     readout.className = 'map-readout';
     readout.style.removeProperty('--lg-accent');
-    readout.textContent = T.readoutStart;
+    // The bonus round allows a single guess. Saying so afterwards is no use.
+    readout.textContent = roundPlan(state.round).bonus ? T.bonusIntro : T.readoutStart;
   } else {
     // Same verdict the history row carries, restated where it cannot be
     // missed: which country, how far off, and whether the continent and
@@ -1213,40 +1261,32 @@ function renderRoundResult(){
   box.hidden = false;
   const solved = state.roundStatus[state.round] === 'solved';
   const grid = currentGuesses().map(g=>heatEmoji[g.bucket]).join(' ');
-  const bonus = state.bonusKm[state.round];
+  const pts = Math.round(state.roundScore[state.round]);
+  const max = Math.round(roundPlan(state.round).points);
   // The site name is the reward, not the puzzle: it is revealed either way,
   // alongside the country that was the actual answer.
   const reveal = `<p>${T.answerWas} <b>${target.country[lang]}</b><br>
                   <span style="color:var(--cream)">${target.names[lang]}</span></p>`;
-  let bonusBlock = '';
-  if(solved && state.bonusOpen){
-    bonusBlock = `<p id="bonusPrompt">${T.bonusPrompt}</p>
-                  <button class="btn secondary" id="skipBonusBtn">${T.bonusSkip}</button>`;
-  } else if(bonus !== null && bonus !== undefined){
-    bonusBlock = `<p>${T.bonusResult(bonus.km, bonus.pts)}</p>`;
-  } else if(solved){
-    bonusBlock = `<p>${T.bonusNone}</p>`;
-  }
+  // A missed round still scores by proximity, so the points line is the real
+  // outcome -- "Round over" alone used to read as zero.
+  const last = currentGuesses()[currentGuesses().length - 1];
+  const lastName = last && (COUNTRIES.find(c=>c.id===last.id) || {}).names;
+  const pointsBlock = solved
+    ? `<p class="pts">${T.pointsFull(pts, max)}</p>`
+    : `<p class="pts">${T.pointsPartial(pts, max, lastName ? lastName[lang] : '', last ? last.km : 0)}</p>`;
   box.innerHTML = `
-    <span class="tier-badge">${T.tier[target.tier]}</span>
+    <span class="tier-badge">${roundPlan(state.round).bonus ? T.bonusBadge : T.tier[target.tier]}</span>
     <h2>${solved ? T.win : T.lose}</h2>
     <p>${solved ? T.winSub(currentGuesses().length) : ''}</p>
     ${reveal}
     <div class="share-grid">${grid}</div>
-    ${bonusBlock}
-    ${state.bonusOpen && solved ? '' :
-      `<button class="btn" id="nextBtn">${T.nextRound}</button>
-       <button class="btn secondary" id="learnBtn">${T.learnMore}</button>`}`;
-  if(!(state.bonusOpen && solved)){
-    document.getElementById('nextBtn').onclick = ()=>{
-      state.round++; state.bonusOpen = false; saveState(); render();
-    };
-    document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
-  } else {
-    document.getElementById('skipBonusBtn').onclick = ()=>{
-      state.bonusOpen = false; saveState(); render();
-    };
-  }
+    ${pointsBlock}
+    <button class="btn" id="nextBtn">${state.round + 1 >= N_ROUNDS ? T.seeResult : T.nextRound}</button>
+    <button class="btn secondary" id="learnBtn">${T.learnMore}</button>`;
+  document.getElementById('nextBtn').onclick = ()=>{
+    state.round++; saveState(); render();
+  };
+  document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
   document.getElementById('guessInput').disabled = true;
   document.getElementById('suggestions').style.display='none';
   // The round is over and the verdict sits below the map; on a phone that is
@@ -1259,42 +1299,12 @@ function renderRoundResult(){
   }
 }
 
-/* ---------- Region bonus ----------
-   Naming the country ends the round; this is the precision round. One tap on
-   the map, scored by how close the pin lands, worth the remaining 20% of the
-   round. Optional — skipping just forfeits it. */
-const BONUS_FULL_KM = 50;    // at or under this, full bonus
-const BONUS_ZERO_KM = 1500;  // beyond this, nothing
-
-function bonusPoints(km){
-  if(km <= BONUS_FULL_KM) return 1;
-  if(km >= BONUS_ZERO_KM) return 0;
-  return 1 - (km - BONUS_FULL_KM) / (BONUS_ZERO_KM - BONUS_FULL_KM);
-}
-
-function unproject(x, y){
-  return { lat: 90 - (y / MAP_H) * 180, lng: (x / MAP_W) * 360 - 180 };
-}
-
-function handleBonusTap(evt){
-  if(!state.bonusOpen || !roundFinished()) return;
-  if(panMoved) return;   // that was a pan, not a pin
-  const w = screenToWorld(evt.clientX, evt.clientY);
-  const p = unproject(w.x, w.y);
-  const target = currentTarget();
-  const km = Math.round(haversineKm(p.lat, p.lng, target.lat, target.lng));
-  const frac = bonusPoints(km);
-  const pts = Math.round(frac * (100/3) * 0.2);
-  state.roundScore[state.round] += frac * (100/3) * 0.2;
-  state.bonusKm[state.round] = { km, pts, lat: p.lat, lng: p.lng };
-  state.bonusOpen = false;
-  saveState();
-  render();
-}
-document.getElementById('mapSvg').addEventListener('click', handleBonusTap);
+/* The pin-drop bonus that used to live here is gone. It asked the player to
+   place the exact spot after the round had already revealed it, and scoring is
+   distance-based now, so precision is measured by the guess itself. */
 
 /* Pan by dragging, zoom by wheel or pinch. panMoved distinguishes a drag from
-   a tap so panning never drops a bonus pin by accident. */
+   a tap, so a drag is never mistaken for a click on the map. */
 let panMoved = false;
 (function setupMapGestures(){
   const svg = document.getElementById('mapSvg');
@@ -1384,7 +1394,7 @@ function renderFinal(){
 
   const box = document.getElementById('finalResult'); box.hidden = false;
   const lines = targets.map((tg,i)=> state.guesses[i].map(g=>heatEmoji[g.bucket]).join(' ') || '—').join('\n');
-  box.innerHTML = `<h2>${T.finalTitle}</h2><p>${T.finalSub(totalScore())}</p>
+  box.innerHTML = `<h2>${T.finalTitle}</h2><p>${T.finalSub(totalScore(), MAX_SCORE)}</p>
     <div class="share-grid">${lines}</div>
     <p>${T.playTomorrow}</p>
     <div id="learnLinks"></div>
@@ -1397,7 +1407,7 @@ function renderFinal(){
     linksBox.appendChild(b);
   });
   document.getElementById('shareBtn').onclick = ()=>{
-    const text = `Heritle — Day #${dayIndex}\n${lines}\n${totalScore()}/100`;
+    const text = `Heritle — Day #${dayIndex}\n${lines}\n${totalScore()}/${MAX_SCORE}`;
     navigator.clipboard?.writeText(text);
   };
 }
@@ -1439,7 +1449,7 @@ document.getElementById('modalBackdrop').addEventListener('click', e=>{ if(e.tar
 
 /* ---------- Guessing ---------- */
 function submitGuess(country){
-  if(state.round >= 3 || roundFinished()) return;
+  if(state.round >= N_ROUNDS || roundFinished()) return;
   const guesses = currentGuesses();
   if(guesses.some(g=>g.id===country.id)) return;
   const target = currentTarget(), answer = targetCountry();
@@ -1457,19 +1467,20 @@ function submitGuess(country){
                  contOk: !!(contCodeOf(country) && contCodeOf(country) === contCodeOf(target)),
                  regionOk: regionOf(country) === regionOf(target) });
 
+  const max = roundPlan(state.round).points;
   if(isCorrect){
     state.roundStatus[state.round] = 'solved';
+    state.roundScore[state.round] = max;          // full points, round over
     catalogue(target, true);
     // "Sharp eye": a tier-3 entry taken on the very first guess.
     if(target.tier === 3 && guesses.length === 1 && !isPractice){
       profile.gemFirstGuess = true; saveProfile();
     }
-    // 80% of the round is the country; the pin bonus can earn the last 20%.
-    state.roundScore[state.round] = GUESS_FRACTIONS[guesses.length-1] * (100/3) * 0.8;
-    state.bonusOpen = true;
-  } else if(guesses.length >= 6){
+  } else if(guesses.length >= guessesAllowed(state.round)){
+    // Out of guesses. The last guess is what scores -- not the best one, and
+    // not nothing: a near miss is worth most of the round.
     state.roundStatus[state.round] = 'failed';
-    state.roundScore[state.round] = 0;
+    state.roundScore[state.round] = max * proximity(km, false);
     catalogue(target, false);   // revealed on failure still enters the catalogue
   }
   saveState();
