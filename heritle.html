@@ -72,6 +72,12 @@
   /* The board crops to 16:10, which hides most of the frame. Tapping opens the
      whole photo so the player can read the detail they're guessing from. */
   .photo-box.zoomable{cursor:zoom-in;}
+  .photo-count{position:absolute;top:6px;left:8px;font-family:'JetBrains Mono',monospace;
+    font-size:0.62rem;color:var(--ink-dim);background:rgba(19,29,52,0.72);
+    border-radius:4px;padding:2px 6px;}
+  /* Gold only on the guess that just revealed it, so a new photo announces
+     itself without the badge shouting for the rest of the round. */
+  .photo-count.fresh{color:var(--navy);background:var(--gold);}
   .zoom-hint{position:absolute;top:6px;right:8px;width:26px;height:26px;border-radius:50%;
     background:rgba(19,29,52,0.7);border:1px solid var(--gold-dim);display:none;
     align-items:center;justify-content:center;pointer-events:none;}
@@ -302,6 +308,7 @@
         <span id="fallbackText"></span>
       </div>
       <span class="photo-credit" id="photoCredit"></span>
+      <span class="photo-count" id="photoCount"></span>
       <span class="zoom-hint"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4M11 8v6M8 11h6"/></svg></span>
     </div>
 
@@ -503,7 +510,7 @@ const UI = {
        regionOf:(dir,cont)=>`${dir} ${cont}`,
        pointsFull:(p,max)=>`Full marks — <b>${p}</b> of ${max} points.`,
        pointsPartial:(p,max,c,km)=>`Your last guess, <b>${c}</b>, was ${km} km away — <b>${p}</b> of ${max} points.`,
-       seeResult:'See result', bonusBadge:'BONUS ROUND',
+       seeResult:'See result', photoOf:(i,n)=>`photo ${i} of ${n}`, bonusBadge:'BONUS ROUND',
        bonusIntro:'Bonus round — a living tradition, and one guess only.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
@@ -548,7 +555,7 @@ const UI = {
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Note maximale — <b>${p}</b> points sur ${max}.`,
        pointsPartial:(p,max,c,km)=>`Votre dernière proposition, <b>${c}</b>, était à ${km} km — <b>${p}</b> points sur ${max}.`,
-       seeResult:'Voir le résultat', bonusBadge:'MANCHE BONUS',
+       seeResult:'Voir le résultat', photoOf:(i,n)=>`photo ${i} sur ${n}`, bonusBadge:'MANCHE BONUS',
        bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
@@ -593,7 +600,7 @@ const UI = {
        regionOf:(dir,cont)=>`${cont} — ${dir}`,
        pointsFull:(p,max)=>`Nota máxima — <b>${p}</b> de ${max} puntos.`,
        pointsPartial:(p,max,c,km)=>`Tu última propuesta, <b>${c}</b>, estaba a ${km} km — <b>${p}</b> de ${max} puntos.`,
-       seeResult:'Ver resultado', bonusBadge:'RONDA BONUS',
+       seeResult:'Ver resultado', photoOf:(i,n)=>`foto ${i} de ${n}`, bonusBadge:'RONDA BONUS',
        bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
        answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
@@ -620,6 +627,7 @@ function normaliseEntry(e, countries){
   return {
     id: e.id, type: e.type, tier: e.tier, lat: e.lat, lng: e.lng,
     year: e.year, approx: e.approx, image: e.image,
+    photos: (e.photos && e.photos.length) ? e.photos : (e.image ? [e.image] : []),
     continentCode: e.continent,
     names: e.names,
     aliases: e.aliases || [],
@@ -1200,16 +1208,48 @@ function render(){
   // A downloaded copy wins when the pipeline made one; otherwise the photo
   // comes straight from Commons' CDN at full width. Either way a miss falls
   // through to onerror and the placeholder.
-  img.src = (target.image && (target.image.path || target.image.url))
+  const shot = currentPhoto(target);
+  img.src = (shot && (shot.path || shot.url))
             || `images/${target.id}.jpg`;
   img.alt = roundFinished() ? target.names[lang] : '';
   // Re-render with the same src doesn't refire load; catch the already-decoded case.
   if(img.complete && img.naturalWidth) box.classList.add('zoomable');
-  const cr = target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
+  const cr = shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   document.getElementById('photoCredit').textContent = cr;
+  renderPhotoCount(target);
 
   renderClues(target); renderHistory(); renderMapForRound(); renderRoundResult();
   document.getElementById('finalResult').hidden = true;
+}
+
+/* ---------- Photographs ----------
+   One photo was a coin toss. Plenty of inscriptions have a single image on
+   Wikidata that says almost nothing about the place -- a plaque, a doorway, a
+   museum case -- and a round built on one of those is unguessable rather than
+   hard. Each wrong guess reveals another, so a weak opening photo costs a
+   guess instead of the round. */
+function photosOf(target){
+  return (target && target.photos && target.photos.length) ? target.photos
+       : (target && target.image ? [target.image] : []);
+}
+function photoIndexFor(target){
+  const n = photosOf(target).length;
+  if(!n) return 0;
+  // One more photo per guess made, and the last one stays once they run out.
+  return Math.min(currentGuesses().length, n - 1);
+}
+function currentPhoto(target){
+  const ps = photosOf(target);
+  return ps.length ? ps[photoIndexFor(target)] : null;
+}
+function renderPhotoCount(target){
+  const el = document.getElementById('photoCount');
+  if(!el) return;
+  const ps = photosOf(target);
+  if(ps.length < 2){ el.textContent = ''; return; }
+  const i = photoIndexFor(target);
+  el.textContent = t().photoOf(i + 1, ps.length);
+  el.classList.toggle('fresh', i > 0 && i === currentGuesses().length);
 }
 
 function renderClues(target){
@@ -1557,8 +1597,9 @@ function openLightbox(){
   if(!target || !document.getElementById('photoBox').classList.contains('zoomable')) return;
   document.getElementById('lightboxImg').src = img.src;
   document.getElementById('lightboxImg').alt = roundFinished() ? target.names[lang] : '';
+  const shot = currentPhoto(target);
   document.getElementById('lightboxCredit').textContent =
-    target.image ? [target.image.credit, target.image.license].filter(Boolean).join(' · ') : '';
+    shot ? [shot.credit, shot.license].filter(Boolean).join(' · ') : '';
   lightbox.classList.add('open');
 }
 function closeLightbox(){ lightbox.classList.remove('open'); }

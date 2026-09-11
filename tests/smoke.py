@@ -220,6 +220,33 @@ def play_day(page, base, day, width, label):
         check(all(ok), f"{label}: every inscribing country counts as correct",
               str(list(zip(multi["names"], ok))))
 
+    # ---- a wrong guess reveals another photograph ----
+    # A single weak photo made a round unguessable rather than hard, so each
+    # miss uncovers another. Checked on an entry that actually has several.
+    photo_state = page.evaluate("""
+      () => {
+        // From the pool, not from today's four: whether a given day happens to
+        // draw a multi-photo entry is luck, and a test that depends on the
+        // draw fails on some days and passes on others.
+        const tg = POOL.find(t => (t.photos || []).length > 1);
+        if(!tg) return null;
+        const saved = targets[state.round];
+        targets[state.round] = tg;
+        const before = currentPhoto(tg).file;
+        const n = photosOf(tg).length;
+        state.guesses[state.round].push({id:'x', km:1, bearing:0, bucket:'far'});
+        const after = currentPhoto(tg).file;
+        state.guesses[state.round].pop();
+        targets[state.round] = saved;
+        return { before, after, n };
+      }
+    """)
+    check(photo_state is not None, f"{label}: some entries carry several photos")
+    if photo_state:
+        check(photo_state["before"] != photo_state["after"],
+              f"{label}: a wrong guess reveals a different photo",
+              f"{photo_state['before']} -> {photo_state['after']}")
+
     # ---- round 1: win outright ----
     page.evaluate("submitGuess(targetCountry())")
     page.wait_for_timeout(250)
