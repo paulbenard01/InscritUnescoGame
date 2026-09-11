@@ -819,6 +819,16 @@ def commons_category_files(category, limit=6):
 
 PHOTOS_PER_ENTRY = 4
 
+# Commons categories hold more than photographs: pronunciation recordings,
+# videos, scanned PDFs, and -- worst for this game -- SVG locator maps, which
+# would show the player exactly which country the answer is in. Only raster
+# photographs get through.
+PHOTO_EXT = (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".gif")
+
+
+def is_photo(filename):
+    return filename.lower().endswith(PHOTO_EXT)
+
 
 def resolve_photos(dataset, all_items, download=False):
     """Attach up to PHOTOS_PER_ENTRY usable Commons photos to every entry.
@@ -837,7 +847,9 @@ def resolve_photos(dataset, all_items, download=False):
         it = all_items[entry["qid"]]
         names = []
         for uri in it.get("images", []):
-            names.append(unquote(uri.split("/")[-1]).replace("_", " "))
+            name = unquote(uri.split("/")[-1]).replace("_", " ")
+            if is_photo(name):
+                names.append(name)
         entry["_photo_names"] = names[:PHOTOS_PER_ENTRY * 2]
         for n in entry["_photo_names"]:
             wanted[n] = None
@@ -853,7 +865,7 @@ def resolve_photos(dataset, all_items, download=False):
             continue
         extra = commons_category_files(cat, limit=PHOTOS_PER_ENTRY * 2)
         for n in extra:
-            if n not in entry["_photo_names"]:
+            if is_photo(n) and n not in entry["_photo_names"]:
                 entry["_photo_names"].append(n)
                 wanted[n] = None
         if i % 100 == 0:
@@ -886,6 +898,11 @@ def resolve_photos(dataset, all_items, download=False):
             entry["image"] = photos[0]
             if len(photos) > 1:
                 entry["photos"] = photos
+    stray = sum(1 for e in dataset
+                for ph in (e.get("photos") or ([e["image"]] if "image" in e else []))
+                if not is_photo(ph["file"]))
+    if stray:
+        print(f"  WARNING: {stray} non-photograph file(s) got through", file=sys.stderr)
     got = sum(1 for e in dataset if "image" in e)
     extra = sum(len(e.get("photos", [])) for e in dataset)
     print(f"  {got}/{len(dataset)} entries have a photo; "
