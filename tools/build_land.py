@@ -21,6 +21,7 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 
 import requests
@@ -28,11 +29,11 @@ import requests
 # Natural Earth is public domain. This mirror serves it as plain GeoJSON, which
 # avoids decoding TopoJSON quantisation by hand for no benefit.
 SOURCE = ("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/"
-          "master/geojson/ne_50m_admin_0_countries.geojson")
-ATTRIBUTION = "Natural Earth (public domain), 50m admin-0 countries"
+          "master/geojson/ne_10m_admin_0_countries.geojson")
+ATTRIBUTION = "Natural Earth (public domain), 10m admin-0 countries"
 
 MAP_W, MAP_H = 440, 220        # must match the constants in heritle.html
-MAX_ZOOM = 12                  # likewise
+MAX_ZOOM = 40                  # likewise
 
 # At full zoom the view is MAP_W/MAX_ZOOM units wide across roughly 360 screen
 # pixels, so one world unit is about 10 px and a tenth of a unit is one pixel.
@@ -40,7 +41,7 @@ MAX_ZOOM = 12                  # likewise
 TOLERANCE = 0.5 / MAX_ZOOM     # world units
 DECIMALS = 2
 # Rings smaller than about a pixel at full zoom are noise at every zoom level.
-MIN_RING_EXTENT = 0.12
+MIN_RING_EXTENT = 0.02
 
 # Natural Earth already splits its geometries at the antimeridian, so a ring
 # that still wraps is unexpected. Count them rather than discarding quietly.
@@ -221,7 +222,7 @@ def main():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "land.json"))
     ap.add_argument("--check", action="store_true",
                     help="report the size it would write, without writing")
-    ap.add_argument("--scale", default="50m", choices=["110m", "50m", "10m"],
+    ap.add_argument("--scale", default="10m", choices=["110m", "50m", "10m"],
                     help="Natural Earth resolution to build from")
     ap.add_argument("--max-zoom", type=int, default=MAX_ZOOM,
                     help="deepest zoom the geometry must survive; sets the tolerance")
@@ -232,7 +233,7 @@ def main():
     # Resolution, detail and the smallest island kept are one decision, so they
     # move together: a finer source is pointless if the simplification then
     # throws the detail away again.
-    SOURCE = SOURCE.replace("ne_50m", "ne_" + args.scale)
+    SOURCE = re.sub(r"ne_\d+m", "ne_" + args.scale, SOURCE)
     TOLERANCE = 0.5 / args.max_zoom
     MIN_RING_EXTENT = args.min_extent
     print(f"scale={args.scale} max_zoom={args.max_zoom} "
@@ -245,7 +246,10 @@ def main():
     verts = sum(len(r) for rs in data["shapes"].values() for r in rs) // 2
     verts += sum(len(r) for r in data["other"]) // 2
     print(f"  {verts} vertices, {kb:.0f} KB of JSON")
-    if kb > 1600:
+    # 10m at forty times zoom measures 2.4 MB, which is the deal being made:
+    # roughly five times the detail for about two megabytes. Past this it is
+    # buying resolution nobody can see at country-guessing scale.
+    if kb > 2800:
         print("  WARNING: larger than intended -- raise TOLERANCE and rebuild.",
               file=sys.stderr)
     if args.check:

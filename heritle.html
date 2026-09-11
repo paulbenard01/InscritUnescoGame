@@ -1042,7 +1042,10 @@ function buildMap(){
    single source of truth for the view, so screen->world conversion (used by
    the bonus pin) stays correct at any zoom. */
 let mapView = { x:0, y:0, w:MAP_W, h:MAP_H };
-const MAX_ZOOM = 12;
+// Must match tools/build_land.py: the geometry is simplified to half a pixel
+// at this zoom, so zooming past it shows the simplification rather than the
+// coast. 10m Natural Earth supports forty.
+const MAX_ZOOM = 40;
 
 function applyView(){
   // Keep the view inside the world and never wider than it.
