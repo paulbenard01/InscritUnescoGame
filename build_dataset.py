@@ -542,7 +542,13 @@ def fetch_designation(pool, limit=None):
                 "desc": {l: val(row, f"desc{l.title()}") for l in ("en", "fr", "es")},
                 "sitelinks": val(row, "sitelinks"),
                 "inscribed": val(row, "inscribed"),
-                "country_qid": qid_of(multi(row, "country")[0]) if multi(row, "country") else None,
+                # Every country, not just the first. Intangible elements are
+                # routinely inscribed by many states at once -- falconry by two
+                # dozen -- and keeping only whichever one Wikidata happened to
+                # list first made the answer arbitrary: Nowruz came out as
+                # "Kurdistan", Diwali as "Mauritius". The first is still the
+                # primary for display and for the coordinate fallback.
+                "country_qids": [q for q in (qid_of(x) for x in multi(row, "country")) if q],
                 "continent_labels": multi(row, "continentEn"),
                 "criteria": multi(row, "criterionEn"),
                 "site_ids": multi(row, "siteId"),
@@ -550,6 +556,7 @@ def fetch_designation(pool, limit=None):
                 "images": multi(row, "image"),
                 "aliases": {"en": [], "fr": [], "es": []},
             }
+            it["country_qid"] = it["country_qids"][0] if it["country_qids"] else None
             coord = parse_coord(val(row, "coord"))
             if coord:
                 it["lat"], it["lng"] = coord
@@ -578,7 +585,7 @@ def fetch_designation(pool, limit=None):
 
 def resolve_countries(items):
     """Batch-resolve every referenced country: names, centroid, continent."""
-    qids = sorted({it["country_qid"] for it in items.values() if it.get("country_qid")})
+    qids = sorted({q for it in items.values() for q in it.get("country_qids", [])})
     info = {}
     if not qids:
         return info
@@ -812,6 +819,10 @@ def to_entry(it, seen_ids, coverage):
 
     if it.get("country_qid"):
         entry["country"] = it["country_qid"]
+    # Only when there really are several: an extra single-element list on every
+    # one of 1,263 sites is dead weight in a file the game downloads.
+    if len(it.get("country_qids") or []) > 1:
+        entry["countries"] = it["country_qids"]
     if it.get("inscribed"):
         m = re.match(r"(-?\d{1,4})-", it["inscribed"])
         if m:

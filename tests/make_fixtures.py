@@ -125,6 +125,16 @@ immaterial = [
     # Duplicate of the material entry above -- must keep the material one.
     row(item=uri("Q999005"), labelEn=lit("Dual Designated Thing", "en"),
         coord=lit("10.0,10.0"), sitelinks=lit(7), country=cat([E + "Q29"])),
+
+    # Inscribed by several states at once, which is normal for intangible
+    # heritage and was being reduced to whichever country came back first:
+    # Nowruz was coming out as "Kurdistan", falconry as "Morocco". Every one of
+    # these has to survive into the entry as a correct answer.
+    row(item=uri("Q999006"),
+        labelEn=lit("A Shared Tradition", "en"),
+        labelFr=lit("Une tradition partagée", "fr"),
+        sitelinks=lit(41), inscribed=lit("2016-11-30T00:00:00Z"),
+        country=cat([E + "Q43", E + "Q29", E + "Q668"])),
 ]
 
 aliases = [
