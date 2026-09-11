@@ -1,0 +1,76 @@
+name: Verify live site
+
+# Plays the deployed GitHub Pages URL for real, in a browser, and fails if the
+# live site does not behave. Runs here rather than locally because the
+# development sandbox cannot reach github.io.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Site URL to play'
+        required: false
+        default: 'https://paulbenard01.github.io/InscritUnescoGame/'
+  workflow_run:
+    workflows: ['Deploy to GitHub Pages']
+    types: [completed]
+  push:
+    paths:
+      - '.github/workflows/verify-live.yml'
+      - 'tests/smoke.py'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install playwright && playwright install --with-deps chromium
+
+      - name: Wait for the deploy to settle
+        run: sleep 25
+
+      - name: Fetch the live URL
+        id: fetch
+        env:
+          URL: ${{ inputs.url || 'https://paulbenard01.github.io/InscritUnescoGame/' }}
+        run: |
+          set -euo pipefail
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          code=$(curl -sS -o /tmp/live.html -w '%{http_code}' -L "$URL")
+          echo "index: HTTP $code, $(wc -c < /tmp/live.html) bytes"
+          test "$code" = "200"
+          grep -q 'Heritle' /tmp/live.html || { echo "wordmark missing"; exit 1; }
+          dcode=$(curl -sS -o /tmp/live.json -w '%{http_code}' -L "${URL%/}/data/dataset.json")
+          echo "dataset: HTTP $dcode, $(wc -c < /tmp/live.json) bytes"
+          test "$dcode" = "200"
+          python - <<'PY'
+          import json
+          d = json.load(open('/tmp/live.json'))
+          e = d['entries']
+          print(f"live dataset: {len(e)} entries, {len(d['countries'])} countries")
+          assert len(e) > 1000, "dataset looks truncated"
+          assert all('lat' in x for x in e[:50]), "entries missing coordinates"
+          with_coords = sum(1 for c in d['countries'].values() if 'lat' in c)
+          print(f"countries with centroids: {with_coords}")
+          assert with_coords > 150, "countries missing centroids — guessing would break"
+          PY
+
+      - name: Play the live site
+        run: python tests/smoke.py --url "${{ steps.fetch.outputs.url }}" 2>&1 | tee live.log
+
+      - name: Report
+        if: always()
+        run: |
+          echo '### Live site verification' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -60 live.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
