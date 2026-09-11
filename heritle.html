@@ -119,16 +119,13 @@
   .map-readout .lg-dist{display:block;}
 
   .guess-row{position:relative;margin-bottom:12px;}
-  #guessInput{width:100%;background:var(--navy-3);border:1px solid var(--gold-dim);border-radius:8px;
-    padding:12px 14px;color:var(--cream);font-family:'Inter',sans-serif;font-size:0.93rem;}
-  #guessInput:focus{outline:none;border-color:var(--gold);}
-  #guessInput::placeholder{color:var(--ink-dim);}
-  .suggestions{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--navy-3);
-    border:1px solid var(--gold-dim);border-radius:8px;overflow:hidden;z-index:5;
-    max-height:45vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-  .suggestion{padding:9px 14px;font-size:0.86rem;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.05);}
-  .suggestion:last-child{border-bottom:none;}
-  .suggestion:hover{background:rgba(201,162,75,0.14);}
+  .tap-hint{text-align:center;font-size:0.8rem;color:var(--ink-dim);padding:6px 0;}
+  /* A tap is cheap to make by accident and there are only three guesses a
+     round, so a tap proposes and a second, deliberate press commits. */
+  .pending{display:flex;align-items:center;gap:10px;background:var(--navy-2);
+    border:1px solid var(--gold);border-radius:8px;padding:8px 8px 8px 14px;}
+  .pending-name{flex:1;font-size:0.95rem;color:var(--cream);font-weight:500;}
+  .pending .btn{margin:0;flex:none;padding:10px 18px;}
 
   .clues{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
   .clue{background:var(--navy-2);border:1px dashed rgba(201,162,75,0.25);border-radius:8px;padding:8px 9px;
@@ -254,13 +251,10 @@
      page on focus and never zoom back, so the guess box goes to 16px exactly;
      controls go to the 44px minimum. Desktop keeps its original sizing. */
   @media (pointer: coarse), (max-width: 560px){
-    #guessInput{font-size:16px;}
     .lang-btn{padding:12px 20px;min-height:44px;font-size:0.78rem;}
-    .suggestion{padding:0 14px;min-height:46px;display:flex;align-items:center;}
     .btn{min-height:44px;padding:12px 20px;}
     .modal-close{min-height:44px;}
   }
-  .suggestion:active{background:rgba(201,162,75,0.22);}
   .btn:active{filter:brightness(0.88);}
   .lang-btn:active{background:rgba(201,162,75,0.2);}
 
@@ -317,9 +311,12 @@
       <div class="map-readout" id="mapReadout"></div>
     </div>
 
-    <div class="guess-row">
-      <input type="text" id="guessInput" autocomplete="off">
-      <div class="suggestions" id="suggestions" style="display:none;"></div>
+    <div class="guess-row" id="guessRow">
+      <div class="tap-hint" id="tapHint"></div>
+      <div class="pending" id="pendingGuess" hidden>
+        <span class="pending-name" id="pendingName"></span>
+        <button class="btn" id="confirmGuess"></button>
+      </div>
     </div>
 
     <div class="clues" id="clues"></div>
@@ -462,7 +459,9 @@ const FALLBACK_DATA = [
 
 /* ---------- i18n ---------- */
 const UI = {
-  en:{ tagline:'three sites and a tradition each day', placeholder:'Type a country…',
+  en:{ tagline:'three sites and a tradition each day', tapPrompt:'Tap the map to place your guess', tapAgain:'Tap again to move it',
+       confirmGuess:'Guess', tapWater:'That is open water — tap a country',
+       tapUnknown:'No country there to guess',
        modeMaterial:'WORLD HERITAGE SITE', modeImmaterial:'INTANGIBLE HERITAGE',
        readoutStart:'Make your first guess', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} guesses this round`, clueLabels:['Continent','Category','Inscribed','Region','Description'],
@@ -505,7 +504,9 @@ const UI = {
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
        answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
-  fr:{ tagline:'trois sites et une tradition chaque jour', placeholder:'Entrez un pays…',
+  fr:{ tagline:'trois sites et une tradition chaque jour', tapPrompt:'Touchez la carte pour placer votre proposition', tapAgain:'Touchez à nouveau pour la déplacer',
+       confirmGuess:'Proposer', tapWater:'C’est en pleine eau — touchez un pays',
+       tapUnknown:'Aucun pays à proposer ici',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
        readoutStart:'Faites votre première proposition', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} essais cette manche`, clueLabels:['Continent','Catégorie','Inscription','Région','Description'],
@@ -548,7 +549,9 @@ const UI = {
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
        answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
-  es:{ tagline:'tres sitios y una tradición cada día', placeholder:'Escribe un país…',
+  es:{ tagline:'tres sitios y una tradición cada día', tapPrompt:'Toca el mapa para colocar tu propuesta', tapAgain:'Toca otra vez para moverla',
+       confirmGuess:'Proponer', tapWater:'Eso es mar abierto — toca un país',
+       tapUnknown:'Aquí no hay ningún país que proponer',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
        readoutStart:'Haz tu primera propuesta', readout:(km,dir)=>`<b>${km} km</b> ${dir}`,
        guessCount:(n,max)=>`${n} / ${max} intentos esta ronda`, clueLabels:['Continente','Categoría','Inscrito','Región','Descripción'],
@@ -677,6 +680,7 @@ function buildCountries(table){
   return Object.entries(table)
     .filter(([, c]) => typeof c.lat === 'number' && typeof c.lng === 'number')
     .map(([qid, c]) => ({ id: qid, lat: c.lat, lng: c.lng, continentCode: c.cont,
+                          iso: c.iso || null,
                           names: { en: c.en, fr: c.fr, es: c.es } }));
 }
 
@@ -751,6 +755,8 @@ function computeTargets(){
    fetched rather than inlined so this file stays openable on its own: over
    file:// the fetch fails and the coarse path draws the world as before. */
 let LAND_PATH = null;          // detailed geometry, once it arrives
+let LAND_SHAPES = null;        // ISO -> rings, for resolving a tap to a country
+let SHAPE_BOX = null;          // ISO -> bounding box, to skip most countries
 async function loadLand(){
   try{
     const res = await fetch('data/land.json', { cache: 'no-cache' });
@@ -758,9 +764,14 @@ async function loadLand(){
     const d = await res.json();
     // Geometry is pre-projected to this exact canvas; a file built for a
     // different one would put every coastline in the wrong place.
-    if(typeof d.path !== 'string' || d.path.length < 1000) throw new Error('no path');
+    if(!d.shapes || !Object.keys(d.shapes).length) throw new Error('no shapes');
     if(d.width !== MAP_W || d.height !== MAP_H) throw new Error('canvas mismatch');
-    LAND_PATH = d.path;
+    LAND_SHAPES = d.shapes;
+    // One copy of the geometry: the rings are hit-tested, and the drawing path
+    // is built from those same rings, so the two cannot describe different
+    // coastlines. Built once -- it is ~39k vertices.
+    LAND_PATH = ringsToPath(Object.values(d.shapes).flat().concat(d.other || []));
+    buildShapeIndex();
   }catch(err){
     console.warn('Heritle: detailed map unavailable, using the built-in outline —', err.message);
   }
@@ -982,7 +993,7 @@ function heatBucket(km){
   if(km < 6500) return 'mid';
   return 'far';
 }
-const heatColorVar = { correct:'var(--correct)', hot:'var(--heat-hot)', close:'var(--heat-close)', mid:'var(--heat-mid)', far:'var(--heat-far)' };
+const heatColorVar = { pending:'var(--gold)', correct:'var(--correct)', hot:'var(--heat-hot)', close:'var(--heat-close)', mid:'var(--heat-mid)', far:'var(--heat-far)' };
 const heatEmoji = { correct:'✅', hot:'🟥', close:'🟧', mid:'🟨', far:'🟦' };
 const compassDirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
 function dirLabel(deg){ return compassDirs[Math.round(deg/22.5) % 16]; }
@@ -1137,7 +1148,7 @@ function roundFinished(){ return state.roundStatus[state.round] !== null; }
 function render(){
   const T = t();
   document.getElementById('tagline').textContent = T.tagline;
-  document.getElementById('guessInput').placeholder = T.placeholder;
+  renderTapHint();
 
   // rounds row
   const rr = document.getElementById('roundsRow'); rr.innerHTML = '';
@@ -1198,11 +1209,9 @@ function render(){
 }
 
 function renderClues(target){
-  // Re-enable between rounds: renderRoundResult disables the input when a
-  // round ends, and nothing used to switch it back, which left rounds 2 and 3
-  // unplayable.
-  const gi = document.getElementById('guessInput');
-  gi.disabled = roundFinished();
+  // Between rounds the pending pin has to go, or the confirm bar would still
+  // be offering the previous round's guess.
+  if(roundFinished()) clearPending(); else renderTapHint();
 
   const T = t();
   const keys = ['continent','category','year','region','clue'];
@@ -1250,6 +1259,10 @@ function renderMapForRound(){
     const e = COUNTRIES.find(c=>c.id===g.id);
     if(e) addPin(e.lat, e.lng, g.bucket, i===currentGuesses().length-1);
   });
+  // The provisional pin: where the last tap landed, before it is committed.
+  if(pendingCountry && !roundFinished()){
+    addPin(pendingCountry.lat, pendingCountry.lng, 'pending', true);
+  }
   // Nothing to spoil any more: the round is scored by the guesses themselves,
   // so the site is marked as soon as the round is over.
   if(roundFinished()) addTargetPin(currentTarget().lat, currentTarget().lng);
@@ -1322,8 +1335,7 @@ function renderRoundResult(){
     state.round++; saveState(); render();
   };
   document.getElementById('learnBtn').onclick = ()=> openInfoModal(target);
-  document.getElementById('guessInput').disabled = true;
-  document.getElementById('suggestions').style.display='none';
+  clearPending();
   // The round is over and the verdict sits below the map; on a phone that is
   // off-screen, so the round appeared to end with nothing happening.
   // Keyed to the round: the element is reused, so a plain flag would scroll
@@ -1332,6 +1344,73 @@ function renderRoundResult(){
     box.dataset.shown = String(state.round);
     box.scrollIntoView({ behavior:'smooth', block:'center' });
   }
+}
+
+/* SVG path data for a set of flat [x,y,x,y,...] rings. */
+function ringsToPath(rings){
+  const out = [];
+  for(const r of rings){
+    if(r.length < 6) continue;
+    let d = 'M' + r[0] + ',' + r[1];
+    for(let i = 2; i < r.length; i += 2) d += 'L' + r[i] + ',' + r[i+1];
+    out.push(d + 'Z');
+  }
+  return out.join('');
+}
+
+/* ---------- Resolving a tap to a country ----------
+   The guess is a point on the map, so a tap has to say which country it landed
+   in. Ray casting over that country's rings, even-odd, so a point inside a
+   hole (an enclave cut out of the surrounding country) counts as outside.
+   Bounding boxes first, because testing 200 countries vertex by vertex on
+   every tap is work that is almost entirely wasted. */
+function buildShapeIndex(){
+  SHAPE_BOX = null;
+  if(!LAND_SHAPES) return;
+  SHAPE_BOX = {};
+  for(const iso in LAND_SHAPES){
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for(const r of LAND_SHAPES[iso]){
+      for(let i = 0; i < r.length; i += 2){
+        if(r[i]   < x0) x0 = r[i];
+        if(r[i]   > x1) x1 = r[i];
+        if(r[i+1] < y0) y0 = r[i+1];
+        if(r[i+1] > y1) y1 = r[i+1];
+      }
+    }
+    SHAPE_BOX[iso] = [x0, y0, x1, y1];
+  }
+}
+
+function pointInShape(rings, x, y){
+  let inside = false;
+  for(const r of rings){
+    const n = r.length / 2;
+    for(let k = 0, l = n - 1; k < n; l = k++){
+      const xi = r[2*k], yi = r[2*k+1], xj = r[2*l], yj = r[2*l+1];
+      if(((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)){
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+}
+
+/* ISO of the country under a world-space point, or null for open water. */
+function isoAt(x, y){
+  if(!LAND_SHAPES || !SHAPE_BOX) return null;
+  for(const iso in LAND_SHAPES){
+    const b = SHAPE_BOX[iso];
+    if(x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
+    if(pointInShape(LAND_SHAPES[iso], x, y)) return iso;
+  }
+  return null;
+}
+
+/* The guessable country carrying that ISO code, if the dataset knows it. */
+function countryByIso(iso){
+  if(!iso) return null;
+  return COUNTRIES.find(c => c.iso === iso) || null;
 }
 
 /* The pin-drop bonus that used to live here is gone. It asked the player to
@@ -1528,8 +1607,7 @@ function submitGuess(country){
     catalogue(target, false);   // revealed on failure still enters the catalogue
   }
   saveState();
-  document.getElementById('guessInput').value='';
-  document.getElementById('suggestions').style.display='none';
+  clearPending();
   render();
   // On a phone the verdict panel sits just below the fold, so a guess looked
   // like it had done nothing at all. 'nearest' scrolls only when it is
@@ -1540,44 +1618,72 @@ function submitGuess(country){
   }
 }
 
-/* ---------- Autocomplete ---------- */
-const input = document.getElementById('guessInput');
-const suggBox = document.getElementById('suggestions');
-input.addEventListener('input', ()=>{
-  const q = input.value.trim().toLowerCase();
-  suggBox.innerHTML = '';
-  if(q.length < 2 || roundFinished()){ suggBox.style.display='none'; return; }
-  const guessedIds = new Set(currentGuesses().map(g=>g.id));
-  const matches = COUNTRIES.filter(c=>{
-    if(guessedIds.has(c.id)) return false;
-    return [c.names.en, c.names.fr, c.names.es].join(' ').toLowerCase().includes(q);
-  }).slice(0,6);
-  if(!matches.length){ suggBox.style.display='none'; return; }
-  matches.forEach(m=>{
-    const div = document.createElement('div'); div.className = 'suggestion'; div.textContent = m.names[lang];
-    div.onclick = ()=> submitGuess(m);
-    suggBox.appendChild(div);
-  });
-  suggBox.style.display='block';
-});
-input.addEventListener('focus', ()=>{
-  // The on-screen keyboard shrinks the visual viewport a beat after focus.
-  // Centring the guess row keeps the suggestion list above the keyboard rather
-  // than under it — on a 360x740 phone the first suggestion was off-screen.
-  setTimeout(()=>{
-    document.querySelector('.guess-row').scrollIntoView({ block:'center', behavior:'smooth' });
-  }, 250);
-});
-input.addEventListener('keydown', e=>{
-  if(e.key==='Enter'){
-    const q = input.value.trim().toLowerCase();
-    const guessedIds = new Set(currentGuesses().map(g=>g.id));
-    const exact = COUNTRIES.find(c=>!guessedIds.has(c.id) &&
-      [c.names.en,c.names.fr,c.names.es].some(n=>n.toLowerCase()===q));
-    if(exact) submitGuess(exact);
+/* ---------- Guessing by tapping the map ----------
+   The guess is a place, not a word. Typing a country name asked the player to
+   already know the answer in order to enter it; pointing at the map is the
+   same act the puzzle is about.
+
+   A tap proposes and the button commits. With three guesses a round and a map
+   only 375px wide, a stray tap that spent a guess outright would be the most
+   annoying thing in the game. */
+let pendingCountry = null;
+
+function clearPending(){
+  pendingCountry = null;
+  const p = document.getElementById('pendingGuess');
+  if(p) p.hidden = true;
+  renderTapHint();
+}
+
+function renderTapHint(){
+  const hint = document.getElementById('tapHint');
+  if(!hint) return;
+  const T = t();
+  if(roundFinished()){ hint.textContent = ''; return; }
+  hint.textContent = pendingCountry ? T.tapAgain : T.tapPrompt;
+}
+
+function showPending(country){
+  pendingCountry = country;
+  const box = document.getElementById('pendingGuess');
+  document.getElementById('pendingName').textContent = country.names[lang];
+  document.getElementById('confirmGuess').textContent = t().confirmGuess;
+  box.hidden = false;
+  renderTapHint();
+}
+
+function flashHint(msg){
+  const hint = document.getElementById('tapHint');
+  if(!hint) return;
+  hint.textContent = msg;
+  clearTimeout(flashHint.timer);
+  flashHint.timer = setTimeout(renderTapHint, 2200);
+}
+
+function handleMapTap(evt){
+  if(roundFinished() || state.round >= N_ROUNDS) return;
+  if(panMoved) return;                       // that was a drag, not a tap
+  const w = screenToWorld(evt.clientX, evt.clientY);
+  const iso = isoAt(w.x, w.y);
+  if(!iso){ flashHint(t().tapWater); return; }
+  const country = countryByIso(iso);
+  if(!country){ flashHint(t().tapUnknown); return; }
+  if(currentGuesses().some(g => g.id === country.id)){
+    // Already guessed: say so rather than silently doing nothing.
+    flashHint(country.names[lang] + ' \u2713');
+    return;
   }
+  showPending(country);
+  renderMapForRound();                        // draw the provisional pin
+}
+document.getElementById('mapSvg').addEventListener('click', handleMapTap);
+
+document.getElementById('confirmGuess').addEventListener('click', ()=>{
+  if(!pendingCountry) return;
+  const c = pendingCountry;
+  clearPending();
+  submitGuess(c);
 });
-document.addEventListener('click', e=>{ if(!e.target.closest('.guess-row')) suggBox.style.display='none'; });
 
 /* ---------- Language slider ---------- */
 document.querySelectorAll('.lang-btn').forEach(btn=>{

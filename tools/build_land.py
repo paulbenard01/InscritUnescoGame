@@ -160,8 +160,9 @@ def build():
     feats = gj.get("features", [])
     print(f"  {len(feats)} features")
 
-    paths, rings, dropped, no_iso = [], 0, 0, 0
+    rings, dropped, no_iso = 0, 0, 0
     shapes = {}          # ISO -> list of rings, each a flat [x,y,x,y,...]
+    other = []           # rings with no ISO: drawn, but not guessable
     for f in feats:
         geom = f.get("geometry") or {}
         kind, coords = geom.get("type"), geom.get("coordinates")
@@ -176,27 +177,30 @@ def build():
             no_iso += 1
         for poly in polys:
             for ring in poly:          # ring 0 is the outline, the rest holes
-                d, parts = ring_to_path(ring)
-                if not d:
+                _d, parts = ring_to_path(ring)
+                if not parts:
                     dropped += 1
                     continue
-                paths.append(d)
                 rings += 1
-                if iso:
-                    for part in parts:
-                        flat = []
-                        for x, y in part:
-                            flat.append(round(x, DECIMALS))
-                            flat.append(round(y, DECIMALS))
+                for part in parts:
+                    flat = []
+                    for x, y in part:
+                        flat.append(round(x, DECIMALS))
+                        flat.append(round(y, DECIMALS))
+                    if iso:
                         shapes.setdefault(iso, []).append(flat)
+                    else:
+                        other.append(flat)
 
-    path = "".join(paths)
     print(f"  {rings} rings kept, {dropped} too small or degenerate, "
           f"{STATS['wrapped']} antimeridian splits")
     print(f"  {len(shapes)} countries hit-testable, {no_iso} features with no ISO code")
+    # The rings are the only copy of the geometry. The game builds its drawing
+    # path from them, so what is drawn and what a tap is tested against cannot
+    # drift apart -- and the file is not carrying the same coastlines twice.
     return {
-        "path": path,
         "shapes": shapes,
+        "other": other,
         "width": MAP_W,
         "height": MAP_H,
         "source": SOURCE,
@@ -216,7 +220,8 @@ def main():
     data = build()
     blob = json.dumps(data, separators=(",", ":"))
     kb = len(blob) / 1024
-    verts = data["path"].count(",")
+    verts = sum(len(r) for rs in data["shapes"].values() for r in rs) // 2
+    verts += sum(len(r) for r in data["other"]) // 2
     print(f"  {verts} vertices, {kb:.0f} KB of JSON")
     if kb > 1600:
         print("  WARNING: larger than intended -- raise TOLERANCE and rebuild.",
