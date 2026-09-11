@@ -71,40 +71,52 @@ HEADERS = {"User-Agent": f"Heritle/1.0 ({CONTACT}; personal heritage guessing ga
 SPARQL_URL = "https://query.wikidata.org/sparql"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 
-# Heritage designations (P1435 values).
-#   Q9259    -- World Heritage Site
-#   Q1459900 -- Intangible Cultural Heritage element
-# A handful of items carry both designations; the first one wins (see main()).
-# If a run returns far fewer than `expected`, the designation item is probably
-# wrong -- check what P1435 actually points at on a known entry.
-# Q1459900 is disabled. It was briefed as Intangible Cultural Heritage, but the
-# items it returns are places, not traditions -- Roman ruins, national parks, a
-# geological stratotype, many titled in the submitting country's language. That
-# is the World Heritage tentative list, and the game was presenting its
-# candidates as inscribed heritage.
+# The two pools the game draws from. They are selected by different
+# properties, which is the whole story of how this went wrong once already.
 #
-# tools/find_ich.py has since established why no replacement P1435 value was
-# ever going to work: intangible elements are not marked by a heritage
-# designation at all. They carry a *status*, P3259, whose values are the
-# individual lists (counts from the run of 2026-09-11):
+# World Heritage Sites carry a heritage designation, P1435 = Q9259.
 #
-#   P3259 = Q110319947  Representative List                       823 items
-#   P3259 = Q17323370   In Need of Urgent Safeguarding             94 items
-#   P3259 = Q877988     Masterpieces of the Oral and Intangible    89 items
+# Intangible elements do not carry a heritage designation at all. The value
+# originally briefed for them, Q1459900, is the World Heritage *tentative*
+# list -- candidate places, not inscribed traditions -- which is why the game
+# once served Roman ruins and national parks as intangible heritage, Sbeitla
+# among them. tools/find_ich.py established the real modelling: a status,
+# P3259, whose values are the individual lists (counts from 2026-09-11):
 #
-# Two cautions before wiring it up. Q110319947 also exists as a P1435 value,
-# where it holds 3 items -- selecting the wrong property would silently yield
-# almost nothing. And the Masterpieces programme predates the Representative
-# List and was folded into it, so adding the three counts double-counts; the
-# first two alone come to 917 against about 849 official, which still wants a
-# gate on official identifiers the way P757 gates the material pool.
+#   Q110319947  Representative List                       823 items
+#   Q17323370   In Need of Urgent Safeguarding             94 items
+#   Q877988     Masterpieces of the Oral and Intangible    89 items
 #
-# So this is not a one-line change any more: it needs a second selector keyed
-# on P3259 rather than another entry in this list. Left undone deliberately --
-# the brief for the current build is material only.
-DESIGNATIONS = [
-    ("Q9259", "material", 1273),
-    # ("Q1459900", "immaterial", 849),   # wrong list; see the note above
+# Only the first two are selected. Masterpieces predates the Representative
+# List and was folded into it, so its elements are already counted there;
+# adding it would double-count. 823 + 94 = 917 against about 849 officially
+# inscribed -- Wikidata is a little looser than the register, as it is for
+# World Heritage too.
+#
+# Two traps worth keeping written down. Q110319947 also exists as a *P1435*
+# value, where it holds three items: selecting on the wrong property yields
+# almost nothing while looking like it worked. And unlike P757 for World
+# Heritage, there is no official identifier property for intangible elements,
+# so list membership is the gate -- see filter_to_official.
+POOLS = [
+    {
+        "kind": "material",
+        "expected": 1273,
+        "spine": "?item p:P1435/ps:P1435 wd:Q9259 .",
+        "inscribed": "?item p:P1435 [ ps:P1435 wd:Q9259 ; pq:P580 ?inscribed_ ] .",
+        "label": "P1435 = Q9259",
+    },
+    {
+        "kind": "immaterial",
+        "expected": 917,
+        "spine": ("VALUES ?ichList_ { wd:Q110319947 wd:Q17323370 } "
+                  "?item p:P3259/ps:P3259 ?ichList_ ."),
+        # Any P3259 statement's start date: an element inscribed on one list
+        # and later moved to another carries both, and either date is the right
+        # sort of answer for "when was this recognised".
+        "inscribed": "?item p:P3259 [ pq:P580 ?inscribed_ ] .",
+        "label": "P3259 = Q110319947 / Q17323370",
+    },
 ]
 
 PAGE_SIZE = 250
@@ -158,7 +170,7 @@ SELECT ?item
        (GROUP_CONCAT(DISTINCT ?officialUrl_; separator="%(sep)s") AS ?officialUrl)
 WHERE {
   {
-    SELECT DISTINCT ?item WHERE { ?item p:P1435/ps:P1435 wd:%(qid)s . }
+    SELECT DISTINCT ?item WHERE { %(spine)s }
     ORDER BY ?item
     LIMIT %(limit)d
     OFFSET %(offset)d
@@ -180,7 +192,7 @@ WHERE {
     ?item ?anyProp_ ?officialUrl_ .
     FILTER(isIRI(?officialUrl_) && CONTAINS(STR(?officialUrl_), "ich.unesco.org"))
   }
-  OPTIONAL { ?item p:P1435 [ ps:P1435 wd:%(qid)s ; pq:P580 ?inscribed_ ] . }
+  OPTIONAL { %(inscribed)s }
   # lat and lon are paired before sampling: an item with two coordinate
   # statements must not mix the latitude of one with the longitude of the other.
   OPTIONAL {
@@ -347,10 +359,15 @@ class Fixtures:
             return self._load("aliases.json") or {"results": {"bindings": []}}
         if "VALUES ?country" in query:
             return self._load("country_info.json") or {"results": {"bindings": []}}
-        qid = re.search(r"wd:(Q\d+)", query)
         if int(re.search(r"OFFSET (\d+)", query).group(1)) > 0:
             return {"results": {"bindings": []}}  # fixtures are a single page
-        return self._load(f"{qid.group(1)}.json") or {"results": {"bindings": []}}
+        # Keyed on the property each pool is selected by, not on a QID: the
+        # intangible selector has changed once already, and a QID-keyed lookup
+        # silently returns nothing when it does.
+        for marker, name in (("p:P3259", "immaterial"), ("p:P1435", "material")):
+            if marker in query:
+                return self._load(f"{name}.json") or {"results": {"bindings": []}}
+        return {"results": {"bindings": []}}
 
     def imageinfo(self, filename):
         return (self._load("commons.json") or {}).get(filename)
@@ -498,14 +515,17 @@ def fetch_aliases(qids):
     return out
 
 
-def fetch_designation(qid, kind, limit=None):
-    """Page through one designation. The query returns one row per item."""
+def fetch_designation(pool, limit=None):
+    """Page through one pool. The query returns one row per item."""
+    kind = pool["kind"]
     items = {}
     offset = 0
     page_size = min(PAGE_SIZE, limit) if limit else PAGE_SIZE
 
     while True:
-        rows = sparql(QUERY_TEMPLATE % {"qid": qid, "limit": page_size,
+        rows = sparql(QUERY_TEMPLATE % {"spine": pool["spine"],
+                                        "inscribed": pool["inscribed"],
+                                        "limit": page_size,
                                         "offset": offset, "sep": SEP})
         if not rows:
             break
@@ -827,13 +847,15 @@ def main():
         print(f"OFFLINE: replaying fixtures from {args.fixture}")
 
     all_items, dual = {}, []
-    for qid, kind, expected in DESIGNATIONS:
-        print(f"\nFetching {kind} ({qid})...")
-        items = fetch_designation(qid, kind, limit=args.limit)
+    for pool in POOLS:
+        kind, expected = pool["kind"], pool["expected"]
+        print(f"\nFetching {kind} ({pool['label']})...")
+        items = fetch_designation(pool, limit=args.limit)
         print(f"  {kind}: {len(items)} distinct items")
         if not args.limit and not args.fixture and len(items) < expected * 0.5:
             print(f"  WARNING: expected ~{expected}, got {len(items)}. "
-                  f"Check that {qid} is the right P1435 value.", file=sys.stderr)
+                  f"Check that {pool['label']} still selects this pool.",
+                  file=sys.stderr)
         # A few items hold both designations. Keep the first and say so, rather
         # than letting the second silently overwrite it and mislabel its type.
         for q, it in items.items():

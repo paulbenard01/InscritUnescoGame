@@ -50,6 +50,9 @@ material = [
         descFr=lit("Paysage de roches volcaniques", "fr"),
         coord=lit("38.65,34.83"), sitelinks=lit(52),
         inscribed=lit("1985-01-01T00:00:00Z"),
+        # "bis" suffix: a re-inscription of site 1133, which must still join to
+        # the official list on its numeric stem.
+        siteId=cat(["1133bis"]),
         country=cat([E + "Q43"]),
         continentEn=cat(["Asia"]),
         image=cat([FP + "Goreme.jpg", FP + "Goreme_2.jpg"]),
@@ -62,6 +65,7 @@ material = [
         descEn=lit("National park in Nepal", "en"),
         coord=lit("27.98,86.92"), sitelinks=lit(31),
         inscribed=lit("1979-01-01T00:00:00Z"),
+        siteId=cat(["41225"]),
         country=cat([E + "Q837"]), continentEn=cat(["Asia"]),
         criterionEn=cat(["World Heritage selection criterion (vii)"])),
 
@@ -71,14 +75,18 @@ material = [
         labelFr=lit("Centre historique de Sighisoara", "fr"),
         coord=lit("46.22,24.79"), sitelinks=lit(9),
         inscribed=lit("1999-01-01T00:00:00Z"),
+        siteId=cat(["131013"]),
         country=cat([E + "Q218"]),
         image=cat([FP + "Sighisoara.jpg"]),
         criterionEn=cat(["World Heritage selection criterion (iii)"])),
 
     # Same English name as the entry above -> id collision must disambiguate.
+    # Its site number is not on the official list, so it also covers the
+    # "carries an id but was never inscribed" case.
     row(item=uri("Q999001"),
         labelEn=lit("Historic Centre of Sighisoara", "en"),
         coord=lit("45.0,25.0"), sitelinks=lit(2),
+        siteId=cat(["999999"]),
         country=cat([E + "Q218"])),
 
     # No name at all -> dropped, counted as no_name.
@@ -160,7 +168,11 @@ def wrap(rows):
 
 
 os.makedirs(OUT, exist_ok=True)
-for name, payload in [("Q9259", wrap(material)), ("Q1459900", wrap(immaterial)),
+# Named for the pool, not the QID that selects it: the intangible selector has
+# already changed once (a P1435 designation that turned out to be the tentative
+# list, now a P3259 status), and a fixture keyed by QID goes quietly unused
+# when that happens -- the offline test then exercises an empty pool and passes.
+for name, payload in [("material", wrap(material)), ("immaterial", wrap(immaterial)),
                       ("aliases", wrap(aliases)), ("country_info", wrap(country_info)),
                       ("commons", commons)]:
     with open(os.path.join(OUT, name + ".json"), "w", encoding="utf-8") as f:
