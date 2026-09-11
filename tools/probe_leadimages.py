@@ -48,7 +48,9 @@ def call(label, params):
             print(f"{label:38s} warning [{mod}]: "
                   f"{' '.join(str(v) for v in w.values())[:160]}")
     pages = body.get("query", {}).get("pages", {})
-    withimg = [p_.get("title") for p_ in pages.values()
+    # formatversion=2 answers with a list instead of a keyed object.
+    seq = list(pages.values()) if isinstance(pages, dict) else list(pages)
+    withimg = [p_.get("title") for p_ in seq
                if (p_.get("original") or p_.get("thumbnail"))]
     print(f"{label:38s} HTTP {r.status_code}  pages={len(pages)}  "
           f"with an image={len(withimg)}")
@@ -83,10 +85,28 @@ def main():
     if pages:
         print("\n== a sample page, verbatim ==")
         sample = list(pages.values() if isinstance(pages, dict) else pages)[:2]
-        print(json.dumps(sample, ensure_ascii=False, indent=2)[:1200])
+        print(json.dumps(sample, ensure_ascii=False, indent=2)[:900])
 
-    print("\nVerdict: the combination above that reports images is the one the "
-          "pipeline should send.")
+    # The request pattern is not the suspect any more, so run the real function
+    # over a realistic batch: full fifty titles, accents, parentheses, scripts.
+    # If this returns nothing while the calls above return everything, the fault
+    # is in the code around the request, not the request.
+    print("\n== build_dataset.wikipedia_images(), the real thing ==")
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import build_dataset as bd
+    batch_en = (TITLES * 5)[:47] + ["Şəbi-hicran", "Tinku", "Al-Ayyala"]
+    batch_fr = ["Flamenco", "Tango argentin", "Fest-noz", "Gwoka",
+                "Repas gastronomique des Français"]
+    got = bd.wikipedia_images({"en": batch_en, "fr": batch_fr})
+    print(f"  asked about {len(set(batch_en))} en + {len(batch_fr)} fr titles; "
+          f"got {len(got)} lead photographs")
+    for k, v in list(got.items())[:5]:
+        print(f"    {k} -> {v}")
+    if not got:
+        print("  NOTHING CAME BACK -- the fault is inside wikipedia_images(), "
+              "not in the API request it makes.")
+
+    print("\nVerdict above: whichever of these returns nothing is the bug.")
     return 0
 
 
