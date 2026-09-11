@@ -148,6 +148,44 @@ def search(term, kind="item", limit=8):
         return []
 
 
+# ---------------------------------------------------------------------------
+# Why the usable pool is smaller than the lists
+# ---------------------------------------------------------------------------
+# The lists hold about 917 items but only 460 survive into the dataset. The
+# pipeline needs three things from an item: an English label to name it, and
+# either a coordinate or a country whose centroid can stand in for one. This
+# counts how many have each, so the shortfall is attributed rather than
+# guessed at.
+POOL_SPINE = "VALUES ?l_ { wd:Q110319947 wd:Q17323370 } ?item p:P3259/ps:P3259 ?l_ ."
+SHORTFALL = [
+    ("on the lists at all", ""),
+    ("with an English label", '?item rdfs:label ?lab . FILTER(lang(?lab)="en")'),
+    ("with a country (P17)", "?item wdt:P17 ?c ."),
+    ("with their own coordinate (P625)", "?item wdt:P625 ?xy ."),
+    ("with a label AND a country",
+     '?item rdfs:label ?lab . FILTER(lang(?lab)="en") ?item wdt:P17 ?c .'),
+]
+
+
+def report_shortfall():
+    print("\n" + "-" * 72)
+    print("WHY THE USABLE POOL IS SMALLER THAN THE LISTS")
+    print("The pipeline needs a name, and a country or a coordinate to place it.")
+    print("-" * 72)
+    counts = {}
+    for label, clause in SHORTFALL:
+        q = f"SELECT (COUNT(DISTINCT ?item) AS ?n) WHERE {{ {POOL_SPINE} {clause} }}"
+        n = scalar(q, None)
+        counts[label] = n
+        print(f"  {label:<36} {('?' if n is None else n):>6}")
+    total = counts.get("on the lists at all")
+    usable = counts.get("with a label AND a country")
+    if isinstance(total, int) and isinstance(usable, int):
+        print(f"\n  {total - usable} of {total} cannot be placed or named, which is")
+        print("  the gap between the lists and the pool the game draws from.")
+    return counts
+
+
 def main():
     # Findings worth repeating at the end. A probe whose answer is buried
     # sixty lines up in a CI log is a probe nobody reads.
@@ -252,6 +290,8 @@ def main():
             names = []
         for name in names[:8]:
             print(f"      · {name[:60]}")
+
+    report_shortfall()
 
     print("\n" + "=" * 72)
     print("VERDICT")
