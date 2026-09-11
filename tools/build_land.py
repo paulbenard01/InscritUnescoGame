@@ -210,6 +210,12 @@ def build():
 
 
 def main():
+    # Before anything reads these names: the argument defaults below do, and
+    # Python rejects a global declaration that comes after a use in the same
+    # function. It is a compile-time error that ast.parse does not see -- only
+    # compiling the module does, which is why it reached CI.
+    global SOURCE, TOLERANCE, MIN_RING_EXTENT
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "land.json"))
@@ -226,7 +232,6 @@ def main():
     # Resolution, detail and the smallest island kept are one decision, so they
     # move together: a finer source is pointless if the simplification then
     # throws the detail away again.
-    global SOURCE, TOLERANCE, MIN_RING_EXTENT
     SOURCE = SOURCE.replace("ne_50m", "ne_" + args.scale)
     TOLERANCE = 0.5 / args.max_zoom
     MIN_RING_EXTENT = args.min_extent
