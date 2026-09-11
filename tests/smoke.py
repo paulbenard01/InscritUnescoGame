@@ -489,7 +489,16 @@ def main():
               "the gallery has a photograph in it")
         check(page.locator("#galCredit").inner_text().strip() != "",
               "the photograph is credited where nothing is left to spoil")
+        # Staged on an entry that certainly has several, rather than on
+        # whichever one the day happened to catalogue.
+        page.evaluate("""
+          () => { const e = POOL.find(d => (d.photos || []).length > 1);
+                  if(e) openInfoModal(e, profile.collection[e.id]); }
+        """)
+        page.wait_for_timeout(200)
         shots = page.evaluate("galleryShots.length")
+        check(shots > 1, "an entry with several photographs opens with them all",
+              str(shots))
         if shots > 1:
             first = page.evaluate("document.getElementById('galImg').src")
             page.locator("#galNext").click(); page.wait_for_timeout(150)
