@@ -239,19 +239,32 @@ DISC = (128, 114, 100)
 # bigger head, because at sixteen pixels in a browser tab the lighter one
 # closes up into a blob.
 SHAPES = {
+    # Proportions worth writing down, because two rounds went wrong on them.
+    #
+    # The legs must leave the BOTTOM of the torso, not its sides. When they
+    # started 31px above the torso's lower cap they sprouted from the middle of
+    # his body, forking at y144 with the arms joining at y111 -- 32px of torso
+    # between shoulder and hip, which read as hips up under the armpits and a
+    # crotch to match.
+    #
+    # And they must be wide-set and near-vertical, with the torso widened to
+    # match, so the gap between them is wide enough to read as two legs. Fork
+    # the legs low AND splay them outward and the fillet merges them into one
+    # flared trunk -- a robe, not a person. The two constraints pull against
+    # each other; this is where they balance.
     "logo": dict(
-        disc=DISC, fillet=8, carve=4,
-        head=(131, 58, 24),
-        torso=(128, 104, 127, 148, 27),
-        arms=[(116, 112, 66, 80, 12), (140, 110, 190, 68, 12)],
-        legs=[(108, 144, 86, 248, 14), (148, 144, 170, 248, 14)],
+        disc=DISC, fillet=7, carve=4,
+        head=(130, 58, 25),
+        torso=(128, 100, 128, 138, 28),
+        arms=[(112, 112, 62, 84, 12), (144, 110, 194, 72, 12)],
+        legs=[(107, 148, 100, 240, 11), (149, 148, 156, 240, 11)],
     ),
     "favicon": dict(
-        disc=DISC, fillet=9, carve=4,
+        disc=DISC, fillet=8, carve=4,
         head=(130, 60, 28),
-        torso=(128, 104, 127, 146, 31),
-        arms=[(114, 114, 66, 84, 15), (142, 112, 190, 74, 15)],
-        legs=[(108, 142, 88, 242, 17), (148, 142, 168, 242, 17)],
+        torso=(128, 102, 128, 138, 30),
+        arms=[(112, 114, 62, 86, 14), (144, 112, 194, 76, 14)],
+        legs=[(106, 148, 98, 238, 13), (150, 148, 158, 238, 13)],
     ),
 }
 
