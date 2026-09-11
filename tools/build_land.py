@@ -215,7 +215,24 @@ def main():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "land.json"))
     ap.add_argument("--check", action="store_true",
                     help="report the size it would write, without writing")
+    ap.add_argument("--scale", default="50m", choices=["110m", "50m", "10m"],
+                    help="Natural Earth resolution to build from")
+    ap.add_argument("--max-zoom", type=int, default=MAX_ZOOM,
+                    help="deepest zoom the geometry must survive; sets the tolerance")
+    ap.add_argument("--min-extent", type=float, default=MIN_RING_EXTENT,
+                    help="drop rings smaller than this, in world units")
     args = ap.parse_args()
+
+    # Resolution, detail and the smallest island kept are one decision, so they
+    # move together: a finer source is pointless if the simplification then
+    # throws the detail away again.
+    global SOURCE, TOLERANCE, MIN_RING_EXTENT
+    SOURCE = SOURCE.replace("ne_50m", "ne_" + args.scale)
+    TOLERANCE = 0.5 / args.max_zoom
+    MIN_RING_EXTENT = args.min_extent
+    print(f"scale={args.scale} max_zoom={args.max_zoom} "
+          f"tolerance={TOLERANCE:.4f} ({TOLERANCE * 40075 / MAP_W:.1f} km) "
+          f"min_extent={MIN_RING_EXTENT} ({MIN_RING_EXTENT * 40075 / MAP_W:.1f} km)")
 
     data = build()
     blob = json.dumps(data, separators=(",", ":"))
