@@ -503,7 +503,7 @@ const UI = {
        seeResult:'See result', bonusBadge:'BONUS ROUND',
        bonusIntro:'Bonus round — a living tradition, and one guess only.',
        lastCounts:'Only your last guess scores, unless you take full marks earlier.',
-       answerWas:'The country was:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
+       answerWas:'The country was:', countriesWere:'Inscribed by:', solvedCountry:(c)=>`It was <b>${c}</b>.`,
        videoLabel:'Videos & interviews', videoText:'Coming soon.', close:'Close' },
   fr:{ tagline:'trois sites et une tradition chaque jour', placeholder:'Entrez un pays…',
        modeMaterial:'PATRIMOINE MONDIAL', modeImmaterial:'PATRIMOINE IMMATÉRIEL',
@@ -546,7 +546,7 @@ const UI = {
        seeResult:'Voir le résultat', bonusBadge:'MANCHE BONUS',
        bonusIntro:'Manche bonus — une tradition vivante, et un seul essai.',
        lastCounts:'Seul votre dernier essai compte, sauf note maximale obtenue avant.',
-       answerWas:'Le pays était :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
+       answerWas:'Le pays était :', countriesWere:'Inscrit par :', solvedCountry:(c)=>`C’était <b>${c}</b>.`,
        videoLabel:'Vidéos et interviews', videoText:'Bientôt disponible.', close:'Fermer' },
   es:{ tagline:'tres sitios y una tradición cada día', placeholder:'Escribe un país…',
        modeMaterial:'PATRIMONIO MUNDIAL', modeImmaterial:'PATRIMONIO INMATERIAL',
@@ -589,7 +589,7 @@ const UI = {
        seeResult:'Ver resultado', bonusBadge:'RONDA BONUS',
        bonusIntro:'Ronda bonus — una tradición viva, y un solo intento.',
        lastCounts:'Solo cuenta tu última propuesta, salvo nota máxima obtenida antes.',
-       answerWas:'El país era:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
+       answerWas:'El país era:', countriesWere:'Inscrito por:', solvedCountry:(c)=>`Era <b>${c}</b>.`,
        videoLabel:'Vídeos y entrevistas', videoText:'Próximamente.', close:'Cerrar' }
 };
 let lang = 'en';
@@ -1296,10 +1296,11 @@ function renderRoundResult(){
   const max = Math.round(roundPlan(state.round).points);
   // The site name is the reward, not the puzzle: it is revealed either way,
   // alongside the country that was the actual answer.
-  const answerNames = (target.countryNames && target.countryNames.length > 1)
+  const several = !!(target.countryNames && target.countryNames.length > 1);
+  const answerNames = several
     ? target.countryNames.map(n => n[lang] || n.en).join(' \u00b7 ')
     : target.country[lang];
-  const reveal = `<p>${T.answerWas} <b>${answerNames}</b><br>
+  const reveal = `<p>${several ? T.countriesWere : T.answerWas} <b>${answerNames}</b><br>
                   <span style="color:var(--cream)">${target.names[lang]}</span></p>`;
   // A missed round still scores by proximity, so the points line is the real
   // outcome -- "Round over" alone used to read as zero.
