@@ -260,11 +260,18 @@ def play_day(page, base, day, width, label):
         const tg = POOL.find(t => (t.photos || []).length > 2);
         if(!tg) return null;
         targets[state.round] = tg;
+        // Staging a new target for this round means staging a live round: the
+        // guess above can land on a second inscribing country and solve it,
+        // and submitGuess refuses to act on a finished round.
+        state.roundStatus[state.round] = null;
         photoView[state.round] = 0;
         render();
         const first = currentPhoto(tg).file;
         const unlockedBefore = unlockedCount(tg);
-        const wrong = COUNTRIES.find(c => !targetCountries().some(a => a.id === c.id));
+        // Not already guessed: a repeat is refused outright, and the first
+        // non-answer country is exactly the one the verdict check above used.
+        const wrong = COUNTRIES.find(c => !targetCountries().some(a => a.id === c.id)
+                                       && !currentGuesses().some(g => g.id === c.id));
         submitGuess(wrong);
         const after = currentPhoto(tg).file;
         const shownIdx = photoIndexFor(tg);

@@ -301,6 +301,10 @@ def main():
             check(page.locator("#photoCredit").inner_text().strip() != "",
                   "the credit appears once the round is over",
                   page.locator("#photoCredit").inner_text())
+            # Reopen before testing the tap-to-close path: the check above
+            # closed the frame with a scripted click, and tapping a hidden
+            # button just hangs on Playwright's visibility wait.
+            page.tap("#photoBox"); page.wait_for_timeout(300)
             page.tap("#lightboxClose"); page.wait_for_timeout(300)
             check(page.locator("#lightbox").get_attribute("class").find("open") < 0,
                   "viewer closes")
