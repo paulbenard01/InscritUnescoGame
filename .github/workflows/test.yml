@@ -11,6 +11,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install requests playwright && playwright install --with-deps chromium
+      - name: Pipeline units (offline)
+        run: python tests/test_pipeline.py
       - name: Pipeline transform (offline fixtures)
         run: python build_dataset.py --fixture tests/fixtures --out /tmp/ds.json
       - name: Game end-to-end

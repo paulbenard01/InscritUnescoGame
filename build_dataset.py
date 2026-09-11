@@ -788,7 +788,7 @@ def wikipedia_images(titles_by_lang):
                     title = page.get("title")
                     if not src or not title:
                         continue
-                    name = unquote(src.rsplit("/", 1)[-1]).replace("_", " ")
+                    name = commons_filename(src)
                     if is_photo(name):
                         # Keyed on a canonical form: the API answers with the
                         # normalised title, which differs from the one asked
@@ -840,6 +840,22 @@ def is_photo(filename):
     return filename.lower().endswith(PHOTO_EXT)
 
 
+def commons_filename(url):
+    """The Commons file name inside an image URL.
+
+    The query string has to go first. Wikipedia's pageimages API now returns
+    its `original` source with tracking parameters attached --
+    `.../GoshawkFalconry.jpg?utm_source=en.wikipedia.org&utm_campaign=api` --
+    so taking everything after the last slash yielded a name ending in
+    `&utm_content=original`, which is_photo() rejected. That, and nothing else,
+    is why the lead-image fallback reported 0 photographs out of 210 articles.
+    """
+    if not url:
+        return ""
+    return unquote(url.split("?", 1)[0].split("#", 1)[0]
+                      .rsplit("/", 1)[-1]).replace("_", " ")
+
+
 def resolve_photos(dataset, all_items):
     """Attach up to PHOTOS_PER_ENTRY usable Commons photos to every entry.
 
@@ -857,7 +873,7 @@ def resolve_photos(dataset, all_items):
         it = all_items[entry["qid"]]
         names = []
         for uri in it.get("images", []):
-            name = unquote(uri.split("/")[-1]).replace("_", " ")
+            name = commons_filename(uri)
             if is_photo(name):
                 names.append(name)
         entry["_photo_names"] = names[:PHOTOS_PER_ENTRY * 2]
