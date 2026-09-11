@@ -174,6 +174,31 @@ def resample(points, spacing):
     return out
 
 
+def smooth(points, passes=12, lam=0.5, mu=-0.53):
+    """Taubin smoothing on a closed polyline.
+
+    Marching squares on a grid returns a slightly bumpy trace, and
+    Catmull-Rom interpolates every point exactly -- so that bumpiness came out
+    as visible ripple along the outline. This takes the high frequencies out
+    before the curve is fitted. Taubin rather than plain Laplacian because
+    Laplacian shrinks a closed loop a little on every pass, which would eat the
+    limbs; the alternating positive and negative steps cancel that out.
+    """
+    pts = points[:]
+    n = len(pts)
+    for k in range(passes):
+        w = lam if k % 2 == 0 else mu
+        out = []
+        for i in range(n):
+            x0, y0 = pts[(i - 1) % n]
+            x1, y1 = pts[i]
+            x2, y2 = pts[(i + 1) % n]
+            out.append((x1 + w * ((x0 + x2) / 2 - x1),
+                        y1 + w * ((y0 + y2) / 2 - y1)))
+        pts = out
+    return pts
+
+
 def to_bezier(points, decimals=1):
     """Closed cubic path through the points, Catmull-Rom converted to Bezier.
     Every node is smooth by construction -- there is nowhere for a corner."""
@@ -191,9 +216,18 @@ def to_bezier(points, decimals=1):
     return "".join(d) + "Z"
 
 
-def build(spec, n=384, spacing=7.0):
-    loops = contours(Mark(spec), n=n)
-    return "".join(to_bezier(resample(l, spacing)) for l in loops), len(loops)
+def build(spec, n=640, spacing=9.0):
+    """Trace, de-noise, then fit.
+
+    A finer grid for a cleaner trace; a dense resample so smoothing has
+    something even to work on; then a coarser resample for the fit, because
+    fewer well-spaced nodes give a calmer curve than many crowded ones.
+    """
+    out = []
+    for loop in contours(Mark(spec), n=n):
+        dense = resample(loop, 2.5)
+        out.append(to_bezier(resample(smooth(dense), spacing)))
+    return "".join(out), len(out)
 
 
 # --------------------------------------------------------------- the figure --
@@ -206,18 +240,18 @@ DISC = (128, 114, 100)
 # closes up into a blob.
 SHAPES = {
     "logo": dict(
-        disc=DISC, fillet=9, carve=4,
-        head=(132, 62, 25),
-        torso=(128, 100, 127, 148, 27),
-        arms=[(116, 110, 66, 80, 12), (140, 108, 190, 66, 12)],
-        legs=[(110, 144, 96, 246, 14), (146, 144, 160, 246, 14)],
+        disc=DISC, fillet=8, carve=4,
+        head=(131, 58, 24),
+        torso=(128, 104, 127, 148, 27),
+        arms=[(116, 112, 66, 80, 12), (140, 110, 190, 68, 12)],
+        legs=[(108, 144, 86, 248, 14), (148, 144, 170, 248, 14)],
     ),
     "favicon": dict(
-        disc=DISC, fillet=10, carve=4,
-        head=(131, 64, 29),
-        torso=(128, 100, 127, 146, 31),
-        arms=[(114, 112, 66, 84, 15), (142, 110, 190, 72, 15)],
-        legs=[(110, 142, 98, 240, 17), (146, 142, 158, 240, 17)],
+        disc=DISC, fillet=9, carve=4,
+        head=(130, 60, 28),
+        torso=(128, 104, 127, 146, 31),
+        arms=[(114, 114, 66, 84, 15), (142, 112, 190, 74, 15)],
+        legs=[(108, 142, 88, 242, 17), (148, 142, 168, 242, 17)],
     ),
 }
 
