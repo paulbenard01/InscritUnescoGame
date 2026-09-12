@@ -191,6 +191,14 @@ def play_day(page, base, day, width, label):
         check(menu.is_visible(), f"{label}: and opens the menu")
         check(page.locator("#mark").get_attribute("aria-expanded") == "true",
               f"{label}: and says so to a screen reader")
+        # It drops down rather than appearing, and the page goes quiet behind it.
+        anim = page.evaluate(
+            "() => getComputedStyle(document.getElementById('markMenu')).animationName")
+        check(anim == "menu-drop", f"{label}: the menu animates down", str(anim))
+        dim = page.locator("#markDim")
+        check(dim.is_visible(), f"{label}: and the page behind it is dimmed")
+        mw = menu.bounding_box()["width"]
+        check(mw >= 200, f"{label}: the menu is wide enough to read", str(round(mw)))
         # It has to be able to spin again, so the class must come off at the end.
         page.wait_for_timeout(1200)
         check("spin" not in (mark.get_attribute("class") or ""),
@@ -215,6 +223,43 @@ def play_day(page, base, day, width, label):
           f"{len(hrefs)} shown, {filled} configured")
     check(all(h.startswith("https://") or h.startswith("mailto:") for h in hrefs),
           f"{label}: and each goes somewhere real", str(hrefs))
+
+    # Who am I: the one item in the menu that stays inside the game.
+    check(page.locator("#aboutOpen").count() == 1, f"{label}: the menu offers Who am I")
+    page.locator("#aboutOpen").click(); page.wait_for_timeout(250)
+    about = page.locator("#aboutBackdrop")
+    check("open" in (about.get_attribute("class") or ""),
+          f"{label}: which opens a panel")
+    paras = page.locator("#aboutBody p").all_inner_texts()
+    check(len(paras) >= 3, f"{label}: with something actually written in it",
+          str(len(paras)))
+    check(all(len(x) > 120 for x in paras),
+          f"{label}: and none of it is a placeholder",
+          str([len(x) for x in paras]))
+    check(page.locator("#aboutTitle").inner_text().strip() != "",
+          f"{label}: and a title")
+    page.keyboard.press("Escape"); page.wait_for_timeout(200)
+    check("open" not in (about.get_attribute("class") or ""),
+          f"{label}: Escape closes the panel")
+    # Every language has to carry the text; a missing one would silently read
+    # in English, which is the failure this project keeps guarding against.
+    said = {}
+    for code in ("en", "fr", "es"):
+        page.click(f".lang-btn[data-lang='{code}']")
+        page.wait_for_timeout(120)
+        if menu.is_hidden():
+            mark.click(); page.wait_for_timeout(120)
+        page.locator("#aboutOpen").click(); page.wait_for_timeout(180)
+        said[code] = "\n".join(page.locator("#aboutBody p").all_inner_texts())
+        check(len(said[code]) > 600, f"{label}: {code.upper()} Who am I is written",
+              str(len(said[code])))
+        page.keyboard.press("Escape"); page.wait_for_timeout(150)
+    check(len({said["en"], said["fr"], said["es"]}) == 3,
+          f"{label}: and each language is its own text, not a fallback")
+    page.click(".lang-btn[data-lang='en']"); page.wait_for_timeout(120)
+    if menu.is_hidden():
+        mark.click(); page.wait_for_timeout(120)
+
     # It has to be dismissable, or it sits over the board.
     page.keyboard.press("Escape"); page.wait_for_timeout(120)
     check(menu.is_hidden(), f"{label}: Escape closes the menu")
@@ -248,6 +293,8 @@ def play_day(page, base, day, width, label):
         page.wait_for_timeout(150)
         check(menu.is_hidden(),
               f"{label}: and a tap anywhere else closes it", str(spot))
+        check(page.locator("#markDim").is_hidden(),
+              f"{label}: and the dimmer goes with it")
 
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.

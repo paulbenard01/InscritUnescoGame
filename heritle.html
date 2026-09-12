@@ -57,18 +57,38 @@
   @media (prefers-reduced-motion: reduce){ .mark.spin img{animation:none;} }
 
   /* The menu the mark opens. Anchored under it, left-aligned with it, and
-     above everything else on the page. */
-  .mark-menu{position:absolute;top:48px;left:0;z-index:12;min-width:186px;
-    background:var(--navy-2);border:1px solid var(--gold-dim);border-radius:10px;
-    padding:6px;text-align:left;
-    box-shadow:0 14px 34px rgba(5,8,18,0.5);}
-  .mark-menu a{display:flex;align-items:center;justify-content:space-between;
-    gap:10px;padding:10px 11px;min-height:42px;border-radius:7px;
-    font-family:'JetBrains Mono',monospace;font-size:0.66rem;letter-spacing:0.03em;
+     above the dimmer so it stays lit while the page behind it goes quiet. */
+  .mark-menu{position:absolute;top:54px;left:0;z-index:12;min-width:214px;
+    background:var(--navy-2);border:1px solid var(--gold-dim);border-radius:11px;
+    padding:7px;text-align:left;
+    box-shadow:0 18px 40px rgba(5,8,18,0.55);
+    animation:menu-drop 0.19s cubic-bezier(0.2,0.7,0.3,1);transform-origin:12px 0;}
+  /* Drops out from under the mark rather than appearing. The animation runs on
+     becoming displayed, which is why open and close are asymmetric: opening is
+     the moment worth animating. */
+  @keyframes menu-drop{
+    from{ opacity:0; transform:translateY(-10px) scale(0.97); }
+    to  { opacity:1; transform:translateY(0) scale(1); } }
+  @media (prefers-reduced-motion: reduce){ .mark-menu{animation:none;} }
+  .mark-menu a, .mark-menu button{display:flex;width:100%;align-items:center;
+    justify-content:space-between;gap:10px;padding:12px 13px;min-height:46px;
+    border-radius:8px;background:none;border:none;cursor:pointer;text-align:left;
+    font-family:'JetBrains Mono',monospace;font-size:0.72rem;letter-spacing:0.03em;
     color:var(--ink);text-decoration:none;}
-  .mark-menu a:hover{background:rgba(201,162,75,0.12);color:var(--gold);}
-  .mark-menu a span{color:var(--gold-dim);}
+  .mark-menu a:hover, .mark-menu button:hover{background:rgba(201,162,75,0.12);
+    color:var(--gold);}
+  .mark-menu a span, .mark-menu button span{color:var(--gold-dim);}
+  /* The one item that stays inside the game gets a rule under it. */
+  .mark-menu .menu-inside{border-bottom:1px dashed rgba(201,162,75,0.22);
+    border-radius:8px 8px 0 0;margin-bottom:3px;}
   .mark-menu:empty{display:none;}
+
+  .mark-dim{position:fixed;inset:0;z-index:10;background:rgba(8,12,24,0.62);
+    animation:dim-in 0.19s ease-out;}
+  @keyframes dim-in{ from{ opacity:0; } to{ opacity:1; } }
+  @media (prefers-reduced-motion: reduce){ .mark-dim{animation:none;} }
+  /* The mark itself has to stay above the dimmer, or it darkens as it spins. */
+  .mark{z-index:11;}
   /* Only this line has to keep clear of the mark and the language control.
      Padding the whole header pushed the pitch onto two lines on a phone, which
      is the vertical budget above the photograph going backwards. */
@@ -541,6 +561,18 @@
   <div class="view" id="viewArchive"></div>
 </div>
 
+<!-- Dims the page behind the open menu. Outside .page so it covers
+     everything, and beneath the menu so the menu stays lit. -->
+<div class="mark-dim" id="markDim" hidden></div>
+
+<div class="modal-backdrop" id="aboutBackdrop">
+  <div class="modal">
+    <h3 id="aboutTitle"></h3>
+    <div id="aboutBody"></div>
+    <button class="btn secondary modal-close" id="aboutClose"></button>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="fieldNotesBackdrop">
   <div class="modal">
     <h3 id="fnTitle"></h3>
@@ -732,6 +764,13 @@ const UI = {
              streak30:['The Long Season','A month without missing a day'],
              decades:['Time Traveller','Entries inscribed across five decades'],
              bonus10:['Tradition Hunter','The bonus round solved ten times'] },
+       about:{ label:'Who am I', title:'Who am I',
+         body:[
+           'I am Paul. I study heritage and museums — cultural heritage management — and I built Heritle on my own, out of a simple frustration: the World Heritage lists are among the most remarkable inventories humanity has ever assembled, and hardly anyone could name thirty entries on them.',
+           'So this is a daily game rather than a catalogue. Three inscribed sites and one living tradition, each shown as a photograph with the name taken away, and you place them on a map. Working out where something is forces you to actually look at it — the architecture, the vegetation, the light — which is far more attention than a list ever gets.',
+           'Recognition is not decoration. Inscription brings protection, funding and expertise, and it brings crowds, speculation and pressure along with them: a place can be loved into difficulty. What helps over time is a public that knows what it has. People defend what they can name, and money follows attention. That is truer still of intangible heritage — a craft, a song, a festival survives by being practised and known, and a tradition nobody has heard of is one bad decade from being gone.',
+           'Heritle is independent and free, with no account and no advertising, and is not affiliated with any heritage organisation. It reads public data and asks you to look closely at places worth knowing.'
+         ] },
        links:{ instagram:'Instagram', news:'Heritage news', source:'Source', contact:'Get in touch' },
        achEarned:'Earned', achLocked:'Still to find',
        achLockedNone:'Every distinction earned.',
@@ -802,6 +841,13 @@ const UI = {
              streak30:['La longue saison','Un mois sans manquer un jour'],
              decades:['Voyageur du temps','Des entrées inscrites sur cinq décennies'],
              bonus10:['Chasseur de traditions','La manche bonus résolue dix fois'] },
+       about:{ label:'Qui suis-je', title:'Qui suis-je',
+         body:[
+           'Je m’appelle Paul. J’étudie le patrimoine et les musées — la gestion du patrimoine culturel — et j’ai construit Heritle seul, par simple agacement : les listes du patrimoine mondial comptent parmi les inventaires les plus remarquables que l’humanité ait établis, et presque personne ne saurait en citer trente entrées.',
+           'D’où un jeu quotidien plutôt qu’un catalogue. Trois sites inscrits et une tradition vivante, montrés en photographie et sans leur nom, à situer sur une carte. Chercher où se trouve une chose oblige à la regarder vraiment — l’architecture, la végétation, la lumière — soit bien plus d’attention qu’une liste n’en reçoit jamais.',
+           'La reconnaissance n’est pas un ornement. L’inscription apporte protection, financements et expertise ; elle apporte aussi la foule, la spéculation et la pression : un lieu peut être aimé jusqu’à l’étouffement. Ce qui aide dans la durée, c’est un public qui sait ce qu’il possède. On défend ce que l’on sait nommer, et les moyens suivent l’attention. C’est plus vrai encore du patrimoine immatériel : un savoir-faire, un chant, une fête ne survivent qu’en étant pratiqués et connus, et une tradition dont personne n’a entendu parler est à une mauvaise décennie de disparaître.',
+           'Heritle est indépendant et gratuit, sans compte ni publicité, et n’est affilié à aucune organisation patrimoniale. Le jeu lit des données publiques et vous demande de regarder de près des lieux qui méritent d’être connus.'
+         ] },
        links:{ instagram:'Instagram', news:'Actualité du patrimoine', source:'Code source', contact:'Nous écrire' },
        achEarned:'Obtenues', achLocked:'Encore à trouver',
        achLockedNone:'Toutes les distinctions ont été obtenues.',
@@ -872,6 +918,13 @@ const UI = {
              streak30:['La larga temporada','Un mes sin faltar un día'],
              decades:['Viajero del tiempo','Entradas inscritas a lo largo de cinco décadas'],
              bonus10:['Cazador de tradiciones','La ronda bonus resuelta diez veces'] },
+       about:{ label:'Quién soy', title:'Quién soy',
+         body:[
+           'Me llamo Paul. Estudio patrimonio y museos —gestión del patrimonio cultural— y construí Heritle por mi cuenta, por una frustración sencilla: las listas del patrimonio mundial están entre los inventarios más notables que la humanidad ha reunido, y casi nadie sabría nombrar treinta de sus entradas.',
+           'De ahí un juego diario en lugar de un catálogo. Tres sitios inscritos y una tradición viva, mostrados como fotografía y sin su nombre, para situarlos en un mapa. Averiguar dónde está algo obliga a mirarlo de verdad —la arquitectura, la vegetación, la luz—, mucha más atención de la que recibe cualquier lista.',
+           'El reconocimiento no es un adorno. La inscripción trae protección, financiación y experiencia; también trae multitudes, especulación y presión: un lugar puede ser querido hasta la asfixia. Lo que ayuda con el tiempo es un público que sepa lo que tiene. Se defiende lo que se sabe nombrar, y los recursos siguen a la atención. Y más aún en el patrimonio inmaterial: un oficio, un canto, una fiesta sobreviven al practicarse y al conocerse, y una tradición de la que nadie ha oído hablar está a una mala década de desaparecer.',
+           'Heritle es independiente y gratuito, sin cuenta ni publicidad, y no está afiliado a ninguna organización del patrimonio. Lee datos públicos y te pide mirar de cerca lugares que vale la pena conocer.'
+         ] },
        links:{ instagram:'Instagram', news:'Noticias del patrimonio', source:'Código fuente', contact:'Escríbenos' },
        achEarned:'Obtenidas', achLocked:'Aún por descubrir',
        achLockedNone:'Todas las distinciones conseguidas.',
@@ -2276,11 +2329,13 @@ document.addEventListener('keydown', e=>{
   if(!mark || !menu) return;
   const img = mark.querySelector('img');
 
+  const dim = document.getElementById('markDim');
   const setOpen = (open)=>{
-    // An empty menu is not worth opening: with no addresses configured there
-    // is nothing in it, and a blank panel reads as a bug.
+    // An empty menu is not worth opening: with nothing configured there is
+    // nothing in it, and a blank panel reads as a bug.
     const has = menu.children.length > 0;
     menu.hidden = !(open && has);
+    if(dim) dim.hidden = menu.hidden;   // the page goes quiet behind it
     mark.setAttribute('aria-expanded', String(!menu.hidden));
   };
 
@@ -2508,12 +2563,38 @@ function renderLinks(){
   const T = t();
   const box = document.getElementById('markMenu');
   if(!box) return;
-  box.innerHTML = ['instagram', 'news', 'source', 'contact']
-    .filter(k => LINKS[k])
-    .map(k => `<a href="${LINKS[k]}" target="_blank" rel="noopener noreferrer">`
-             + `${T.links[k]}<span aria-hidden="true">\u2197</span></a>`)
-    .join('');
+  // Who am I first, and it stays inside the game -- hence the rule under it,
+  // separating the one item that does not leave from the ones that do.
+  box.innerHTML =
+    `<button class="menu-inside" id="aboutOpen">${T.about.label}</button>`
+    + ['instagram', 'news', 'source', 'contact']
+        .filter(k => LINKS[k])
+        .map(k => `<a href="${LINKS[k]}" target="_blank" rel="noopener noreferrer">`
+                 + `${T.links[k]}<span aria-hidden="true">\u2197</span></a>`)
+        .join('');
+  document.getElementById('aboutOpen').onclick = openAbout;
 }
+
+/* ---------- Who am I ---------- */
+function openAbout(){
+  const T = t();
+  document.getElementById('aboutTitle').textContent = T.about.title;
+  document.getElementById('aboutBody').innerHTML =
+    T.about.body.map(p => `<p>${p}</p>`).join('');
+  document.getElementById('aboutClose').textContent = T.close;
+  document.getElementById('aboutBackdrop').classList.add('open');
+}
+(function aboutPanel(){
+  const back = document.getElementById('aboutBackdrop');
+  document.getElementById('aboutClose').addEventListener('click',
+    ()=> back.classList.remove('open'));
+  back.addEventListener('click', e=>{
+    if(e.target === back) back.classList.remove('open');
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape') back.classList.remove('open');
+  });
+})();
 
 function renderCollection(){
   const T = t();
