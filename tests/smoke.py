@@ -900,21 +900,26 @@ def main():
         check(landed == today,
               "asking for an unplayed day by URL lands on today instead",
               f"asked {unplayed}, got {landed}")
-        # A day this browser HAS finished is still replayable -- it spoils
-        # nothing, and the archive offers it.
-        played = page.evaluate("Object.keys(profile.days).map(Number)")
-        check(bool(played), "the profile has a finished day to replay", str(played))
-        if played:
-            d = played[0]
-            again = ctx.new_page()
-            again.goto(f"{base}?day={d}")
-            again.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
-            check(again.evaluate("dayIndex") == d,
-                  "a day you have finished can still be replayed",
-                  f"asked {d}, got {again.evaluate('dayIndex')}")
-            check(again.evaluate("isPractice") is True,
-                  "and a replay is practice, so it cannot rewrite your record")
-            again.close()
+        # A PAST day this browser has finished is still replayable -- it spoils
+        # nothing, and the archive offers it. Seeded, because the only day this
+        # run has finished is today, and replaying today is not a replay: the
+        # first version of this check asked for today back and then wondered why
+        # it was not practice.
+        seeded = today - 3
+        page.evaluate("""
+          d => { profile.days[d] = { score: 42, at: Date.now(),
+                                     statuses: ['solved','failed','solved','failed'] };
+                 saveProfile(); }
+        """, seeded)
+        again = ctx.new_page()
+        again.goto(f"{base}?day={seeded}")
+        again.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
+        check(again.evaluate("dayIndex") == seeded,
+              "a past day you have finished can still be replayed",
+              f"asked {seeded}, got {again.evaluate('dayIndex')}")
+        check(again.evaluate("isPractice") is True,
+              "and a replay is practice, so it cannot rewrite your record")
+        again.close()
         fresh.close()
 
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)

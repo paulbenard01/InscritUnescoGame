@@ -60,6 +60,37 @@ def main():
                  "Song.wav"):
         check(not bd.is_photo(name), f"{name} does not")
 
+    print("\n== the brand files ==")
+    # Enforced rather than remembered. A viewBox was added to these SVGs once,
+    # and the next export from the design tool replaced the file and dropped it
+    # again -- silently, because Chromium scales a viewBox-less SVG in an <img>
+    # and Safari does not. Most players are on a phone, so this check exists to
+    # fail the moment a file comes back without one.
+    import glob
+    import re as _re
+    svgs = sorted(glob.glob(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "*.svg")))
+    check(bool(svgs), "there are brand SVGs to check", str(svgs))
+    for path in svgs:
+        name = os.path.basename(path)
+        body = open(path, encoding="utf-8").read()
+        root = _re.search(r"<svg[^>]*>", body)
+        check(bool(root), f"{name}: has an <svg> root")
+        if not root:
+            continue
+        head = root.group(0)
+        vb = _re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', head)
+        check(bool(vb), f"{name}: has a viewBox, so it scales in Safari too",
+              head[:120])
+        wh = _re.search(r'width="([\d.]+)"[^>]*height="([\d.]+)"', head)
+        if vb and wh:
+            # A viewBox that disagrees with the drawing's own size would crop
+            # or letterbox it, which is worse than not having one.
+            check(abs(float(vb.group(1)) - float(wh.group(1))) < 0.01
+                  and abs(float(vb.group(2)) - float(wh.group(2))) < 0.01,
+                  f"{name}: and it matches the artwork's dimensions",
+                  f"viewBox {vb.group(1)}x{vb.group(2)} vs {wh.group(1)}x{wh.group(2)}")
+
     print("\n== resolve_titles_from_response ==")
     # Everything the API can answer with, in one response: a title spelled
     # differently, one that moved, one that is gone, and one that is fine.
