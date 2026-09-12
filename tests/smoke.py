@@ -905,21 +905,27 @@ def main():
         # run has finished is today, and replaying today is not a replay: the
         # first version of this check asked for today back and then wondered why
         # it was not practice.
-        seeded = today - 3
+        # One day back, not three: the game launched on day 0, so on day 1 a
+        # "three days ago" is day -2 and does not exist. Skipped entirely on
+        # launch day, when there is no past day to replay at all.
+        seeded = today - 1
+        if seeded < 0:
+            print("  ---- day 0: no past day exists yet, skipped the replay check")
         page.evaluate("""
           d => { profile.days[d] = { score: 42, at: Date.now(),
                                      statuses: ['solved','failed','solved','failed'] };
                  saveProfile(); }
         """, seeded)
-        again = ctx.new_page()
-        again.goto(f"{base}?day={seeded}")
-        again.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
-        check(again.evaluate("dayIndex") == seeded,
-              "a past day you have finished can still be replayed",
-              f"asked {seeded}, got {again.evaluate('dayIndex')}")
-        check(again.evaluate("isPractice") is True,
-              "and a replay is practice, so it cannot rewrite your record")
-        again.close()
+        if seeded >= 0:
+            again = ctx.new_page()
+            again.goto(f"{base}?day={seeded}")
+            again.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
+            check(again.evaluate("dayIndex") == seeded,
+                  "a past day you have finished can still be replayed",
+                  f"asked {seeded}, got {again.evaluate('dayIndex')}")
+            check(again.evaluate("isPractice") is True,
+                  "and a replay is practice, so it cannot rewrite your record")
+            again.close()
         fresh.close()
 
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
@@ -933,10 +939,12 @@ def main():
         check(links + locked == rows,
               "every archive row either opens or says it was not played",
               f"{links} links + {locked} locked vs {rows} rows")
-        played_count = page.evaluate("Object.keys(profile.days).length")
-        # Today always opens, plus one per finished day that is not today.
-        expect_links = 1 + sum(1 for d in page.evaluate(
-            "Object.keys(profile.days).map(Number)") if d != page.evaluate("todayIndex"))
+        # Today always opens, plus one per finished day the archive actually
+        # lists: it shows today back sixty days, so a played day outside that
+        # window has no row and therefore no link.
+        played_days = page.evaluate("Object.keys(profile.days).map(Number)")
+        lo = max(0, today - 60)
+        expect_links = 1 + sum(1 for d in played_days if d != today and lo <= d <= today)
         check(links == expect_links,
               "and only the played days do", f"{links} links, expected {expect_links}")
         hrefs = page.locator("#viewArchive .arch-row a").evaluate_all(
