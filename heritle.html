@@ -32,8 +32,11 @@
      vertical budget above the photograph. */
   .mark{position:absolute;top:-2px;left:0;width:44px;height:44px;padding:0;
     background:none;border:none;cursor:pointer;line-height:0;
+    display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent;}
-  .mark img{width:42px;height:42px;display:block;}
+  /* height:auto, because the artwork is not exactly square (673.6 x 656.4) and
+     forcing it into a square box would squash it. */
+  .mark img{width:42px;height:auto;display:block;margin:auto;}
   .mark:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:50%;}
   /* Spin on a tap. The class is removed when the animation ends, so it can be
      set off again -- an animation that only plays once is a disappointment. */
@@ -442,7 +445,7 @@
          to the wordmark alone rather than showing a broken-image icon. See
          assets/README.md -- capitalisation is part of the filename on Pages. -->
     <button class="mark" id="mark" aria-label="Heritle">
-      <img src="assets/Heritlelogogold.svg" alt=""
+      <img src="assets/heritlelogogold.svg" alt=""
            onerror="this.closest('.mark').hidden = true">
     </button>
     <div class="wordmark">Heritle</div>
@@ -558,7 +561,7 @@
    not rendered at all -- the game never shows a link that goes nowhere.
    Labels are translated below (T.links); these are only the addresses. */
 const LINKS = {
-  instagram: '',                                     // e.g. https://instagram.com/…
+  instagram: 'https://instagram.com/herit.le',
   news:      'https://whc.unesco.org/en/news/',      // inscriptions, decisions, alerts
   source:    'https://github.com/paulbenard01/Heritle',
   contact:   ''                                      // e.g. mailto:you@example.com
