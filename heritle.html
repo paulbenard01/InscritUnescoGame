@@ -30,18 +30,30 @@
   header{text-align:center;margin-bottom:16px;position:relative;}
   /* The mark sits opposite the language control, and costs nothing in the
      vertical budget above the photograph. */
-  .mark{position:absolute;top:-2px;left:0;width:44px;height:44px;padding:0;
+  .mark{position:absolute;top:-4px;left:0;width:52px;height:52px;padding:0;
     background:none;border:none;cursor:pointer;line-height:0;
     display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent;}
-  /* height:auto, because the artwork is not exactly square (673.6 x 656.4) and
-     forcing it into a square box would squash it. */
-  .mark img{width:42px;height:auto;display:block;margin:auto;}
+  /* A whole number of pixels, and object-fit rather than height:auto. The
+     artwork is 673.6 x 656.4, so height:auto gave the box a fractional height
+     (42 x 40.92) -- and a fractionally sized box is re-rasterised as it turns,
+     which is what made the spin swell by a pixel and settle back. contain
+     keeps the aspect ratio without squashing it into the square. */
+  .mark img{width:48px;height:48px;object-fit:contain;display:block;
+    /* Promoted to its own layer up front. If the layer were created when the
+       animation starts, the mark would be rasterised afresh at that moment --
+       a visible jump at each end of the spin. */
+    transform:translateZ(0);backface-visibility:hidden;}
   .mark:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:50%;}
   /* Spin on a tap. The class is removed when the animation ends, so it can be
      set off again -- an animation that only plays once is a disappointment. */
-  @keyframes mark-spin{ to{ transform:rotate(360deg); } }
-  .mark.spin img{animation:mark-spin 0.9s cubic-bezier(0.34,0.09,0.2,1);}
+  /* translateZ carried through both frames, or the animation's transform drops
+     the layer it was promoted into and the jump comes back. */
+  @keyframes mark-spin{
+    from{ transform:translateZ(0) rotate(0deg); }
+    to  { transform:translateZ(0) rotate(360deg); } }
+  .mark.spin img{animation:mark-spin 0.85s cubic-bezier(0.4,0,0.25,1);
+    transform-origin:50% 50%;will-change:transform;}
   @media (prefers-reduced-motion: reduce){ .mark.spin img{animation:none;} }
 
   /* The menu the mark opens. Anchored under it, left-aligned with it, and
@@ -61,7 +73,7 @@
      Padding the whole header pushed the pitch onto two lines on a phone, which
      is the vertical budget above the photograph going backwards. */
   .wordmark{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;
-    color:var(--cream);padding:0 52px;}
+    color:var(--cream);padding:0 58px;}
   .pitch{color:var(--cream);font-size:0.95rem;margin-top:2px;}
   .tagline{color:var(--ink-dim);font-size:0.8rem;margin-top:2px;}
   /* Demoted deliberately. Gold is the palette's "act on this" colour -- the

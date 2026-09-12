@@ -219,9 +219,35 @@ def play_day(page, base, day, width, label):
     page.keyboard.press("Escape"); page.wait_for_timeout(120)
     check(menu.is_hidden(), f"{label}: Escape closes the menu")
     mark.click(); page.wait_for_timeout(120)
-    page.locator(".photo-box").click(position={"x": 5, "y": 5})
-    page.wait_for_timeout(150)
-    check(menu.is_hidden(), f"{label}: and a tap anywhere else closes it")
+    # A real click, at a point the page itself confirms is empty. Three
+    # hand-picked targets were wrong in three different ways: the photograph
+    # opens the lightbox, whose overlay then swallows every later click; the
+    # tagline sits underneath the open menu; and a point just right of the menu
+    # landed on the nav and switched views, which broke every check after it.
+    # So: ask the document what is at a candidate point, and only click where
+    # nothing interactive lives.
+    spot = page.evaluate("""
+      () => {
+        const m = document.getElementById('markMenu').getBoundingClientRect();
+        const busy = 'button, a, .nav, .map-wrap, .photo-box, .modal, .lightbox,'
+                   + ' input, label, .mark, .mark-menu';
+        for(let y = Math.round(m.bottom) + 8; y < innerHeight - 8; y += 6){
+          for(let x = 8; x < innerWidth - 8; x += 10){
+            if(x > m.left - 4 && x < m.right + 4 && y > m.top - 4 && y < m.bottom + 4) continue;
+            const el = document.elementFromPoint(x, y);
+            if(!el || el.closest(busy)) continue;
+            return { x, y, at: el.tagName.toLowerCase() + '.' + (el.className || '') };
+          }
+        }
+        return null;
+      }
+    """)
+    check(spot is not None, f"{label}: there is somewhere empty to tap")
+    if spot:
+        page.mouse.click(spot["x"], spot["y"])
+        page.wait_for_timeout(150)
+        check(menu.is_hidden(),
+              f"{label}: and a tap anywhere else closes it", str(spot))
 
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.
