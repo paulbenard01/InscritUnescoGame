@@ -186,7 +186,7 @@ def play_day(page, base, day, width, label):
         check(menu.is_hidden(), f"{label}: the menu starts closed")
         mark.click()
         page.wait_for_timeout(80)
-        check("spin" in (mark.get_attribute("class") or ""),
+        check("spinning" in (mark.get_attribute("class") or ""),
               f"{label}: tapping the mark starts the spin")
         check(menu.is_visible(), f"{label}: and opens the menu")
         check(page.locator("#mark").get_attribute("aria-expanded") == "true",
@@ -200,8 +200,10 @@ def play_day(page, base, day, width, label):
         mw = menu.bounding_box()["width"]
         check(mw >= 200, f"{label}: the menu is wide enough to read", str(round(mw)))
         # It has to be able to spin again, so the class must come off at the end.
-        page.wait_for_timeout(1200)
-        check("spin" not in (mark.get_attribute("class") or ""),
+        # A tap's flick coasts down under friction rather than on a timer, which
+        # takes about a second and a half from the flick speed.
+        page.wait_for_timeout(2400)
+        check("spinning" not in (mark.get_attribute("class") or ""),
               f"{label}: the spin clears itself so it can go again")
     else:
         # Skipped, not returned from: a brand file that has not been uploaded
@@ -210,6 +212,55 @@ def play_day(page, base, day, width, label):
               f"{label}: a missing mark hides itself rather than showing a broken image",
               str(state))
         print(f"  ---- no mark uploaded; skipped the spin checks")
+
+        # ---- the mark is a spinning top ----
+        # A quick tap opens the menu; holding winds him up, and letting go
+        # leaves him coasting to a stop wherever his momentum takes him. So a
+        # long press must NOT also toggle the menu: the hand asked for a spin.
+        angle_of = """() => {
+          const m = getComputedStyle(document.querySelector('#mark img')).transform;
+          const n = m && m.match(/matrix\\(([^)]+)\\)/);
+          if(!n) return 0;
+          const [a, b] = n[1].split(',').map(Number);
+          return Math.atan2(b, a) * 180 / Math.PI;
+        }"""
+        if menu.is_visible():
+            page.keyboard.press("Escape"); page.wait_for_timeout(120)
+        mb2 = mark.bounding_box()
+        cx, cy = mb2["x"] + mb2["width"] / 2, mb2["y"] + mb2["height"] / 2
+        page.mouse.move(cx, cy)
+        page.mouse.down()
+        page.wait_for_timeout(900)
+        spun_a = page.evaluate(angle_of)
+        page.wait_for_timeout(150)
+        spun_b = page.evaluate(angle_of)
+        check(abs(spun_a - spun_b) > 0.5,
+              f"{label}: holding the mark winds him up",
+              f"{spun_a:.1f} then {spun_b:.1f}")
+        page.mouse.up()
+        check(menu.is_hidden(),
+              f"{label}: and a long press is a spin, not a request for the menu")
+        # Momentum: still turning after the finger is off.
+        after_a = page.evaluate(angle_of)
+        page.wait_for_timeout(200)
+        after_b = page.evaluate(angle_of)
+        check(abs(after_a - after_b) > 0.5,
+              f"{label}: he keeps turning once released",
+              f"{after_a:.1f} then {after_b:.1f}")
+        # And he stops, holding whatever angle he stopped on.
+        for _ in range(24):
+            page.wait_for_timeout(250)
+            if page.evaluate(
+                "() => !document.getElementById('mark').classList.contains('spinning')"):
+                break
+        check(page.evaluate(
+                "() => !document.getElementById('mark').classList.contains('spinning')"),
+              f"{label}: and comes to rest")
+        rest_a = page.evaluate(angle_of)
+        page.wait_for_timeout(350)
+        check(abs(page.evaluate(angle_of) - rest_a) < 0.01,
+              f"{label}: resting wherever his momentum left him",
+              f"{rest_a:.1f} deg")
 
     # The links live in that menu. The foot of the page was the wrong home for
     # them: nobody scrolls past the puzzle to find out what the game is.
@@ -827,9 +878,55 @@ def main():
         check(page.locator("#viewPassport .stamp").count() >= 1, "passport shows a stamp")
         # What a player comes back to is the stamps they have, so the earned
         # ones are on the page and the rest are behind a disclosure.
-        expected_ach = page.evaluate("ACHIEVEMENTS.length")
+        # Visible, not total: a secret nobody has earned is not listed, which
+        # is the point of it being secret.
+        expected_ach = page.evaluate("visibleAchievements().length")
+        total_ach = page.evaluate("ACHIEVEMENTS.length")
         check(expected_ach >= 20, "there are distinctions worth chasing",
               str(expected_ach))
+        check(total_ach > expected_ach,
+              "and at least one of them is a secret, so it is not listed",
+              f"{total_ach} defined, {expected_ach} shown")
+        secret = page.evaluate("""
+          () => ACHIEVEMENTS.filter(a => a.secret).map(a => a.id)
+        """)
+        names = page.locator("#viewPassport .ach-tile span").all_inner_texts()
+        check(bool(secret), "a secret distinction exists", str(secret))
+        check(not any("Dizzy" in n for n in names),
+              "and it is nowhere on the page until it is earned", str(names))
+        # Earn it the way a player would: hold him down until he has turned a
+        # hundred times without stopping. Measured at about ten and a half
+        # seconds of holding, so this is slow but it is the real path.
+        page.evaluate("showView('Today')"); page.wait_for_timeout(200)
+        dz = page.locator("#mark").bounding_box()
+        page.mouse.move(dz["x"] + dz["width"] / 2, dz["y"] + dz["height"] / 2)
+        page.mouse.down()
+        got = False
+        for _ in range(40):                      # up to 20s
+            page.wait_for_timeout(500)
+            if page.evaluate("() => !!profile.dizzy"):
+                got = True
+                break
+        page.mouse.up()
+        check(got, "a hundred turns without stopping earns Dizzy")
+        if got:
+            check(page.locator(".dizzy-toast").count() == 1,
+                  "and it says so when it happens rather than waiting to be found")
+            check(page.evaluate("() => profile.achievements.includes('dizzy')"),
+                  "and it is recorded")
+            page.evaluate("showView('Passport')"); page.wait_for_timeout(300)
+            shown_names = page.locator("#viewPassport .ach-tile span").all_inner_texts()
+            check(any("Dizzy" in n for n in shown_names),
+                  "and now it is on the page", str(shown_names[-4:]))
+            head = page.locator("#viewPassport .panel-head p").last.inner_text()
+            check(str(total_ach) in head,
+                  "and the count includes it once it exists", head)
+            # It is no longer secret to this player, so every count below is
+            # against the list as it now stands.
+            expected_ach = page.evaluate("visibleAchievements().length")
+            check(expected_ach == total_ach,
+                  "and nothing is left hidden from someone who has them all",
+                  f"{expected_ach} shown, {total_ach} defined")
         # Earned enough to be worth showing, rather than whatever four entries
         # in one day happens to unlock -- otherwise "only the earned ones are
         # shown" passes against an empty list and proves nothing.
