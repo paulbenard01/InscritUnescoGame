@@ -89,7 +89,12 @@ def play_day(page, base, day, width, label):
     page.on("response", lambda r: bad_requests.append(f"{r.status} {r.url}")
             if r.status >= 400 and interesting(r.url, r.request.resource_type) else None)
 
-    page.goto(f"{base}?day={day}" if day is not None else base)
+    # The day is injected before the page runs, not passed in the URL: ?day=N
+    # only replays a day this browser has already finished, which is the point
+    # of the change being tested.
+    if day is not None:
+        page.add_init_script(f"window.HERITLE_TEST_DAY = {day};")
+    page.goto(base)
     page.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
     page.evaluate("document.getElementById('fnClose').click()")   # dismiss Field Notes
     page.wait_for_timeout(200)
@@ -174,14 +179,22 @@ def play_day(page, base, day, width, label):
           f"{label}: the mark is loaded from assets/", state["src"])
     if state["w"] > 0:
         check(not state["hidden"], f"{label}: a mark that loads is shown")
+        # One gesture, two effects: the mark spins and the menu opens. Checked
+        # together because that is what a tap does -- asserting them separately
+        # meant the spin check left the menu open under the next one.
+        menu = page.locator("#markMenu")
+        check(menu.is_hidden(), f"{label}: the menu starts closed")
         mark.click()
-        page.wait_for_timeout(60)
+        page.wait_for_timeout(80)
         check("spin" in (mark.get_attribute("class") or ""),
-              f"{label}: tapping it starts the spin")
+              f"{label}: tapping the mark starts the spin")
+        check(menu.is_visible(), f"{label}: and opens the menu")
+        check(page.locator("#mark").get_attribute("aria-expanded") == "true",
+              f"{label}: and says so to a screen reader")
         # It has to be able to spin again, so the class must come off at the end.
         page.wait_for_timeout(1200)
         check("spin" not in (mark.get_attribute("class") or ""),
-              f"{label}: and the spin clears itself so it can go again")
+              f"{label}: the spin clears itself so it can go again")
     else:
         # Skipped, not returned from: a brand file that has not been uploaded
         # yet must not cost the other three hundred checks in this run.
@@ -190,14 +203,25 @@ def play_day(page, base, day, width, label):
               str(state))
         print(f"  ---- no mark uploaded; skipped the spin checks")
 
-    # Links out: only the ones with an address, never a dead one.
-    hrefs = page.locator("#links a").evaluate_all("els => els.map(e => e.href)")
+    # The links live in that menu. The foot of the page was the wrong home for
+    # them: nobody scrolls past the puzzle to find out what the game is.
+    menu = page.locator("#markMenu")
+    if menu.is_hidden():
+        mark.click(); page.wait_for_timeout(120)
+    hrefs = menu.locator("a").evaluate_all("els => els.map(e => e.href)")
     filled = page.evaluate("Object.values(LINKS).filter(Boolean).length")
     check(len(hrefs) == filled,
           f"{label}: every link with an address is shown, and only those",
           f"{len(hrefs)} shown, {filled} configured")
     check(all(h.startswith("https://") or h.startswith("mailto:") for h in hrefs),
           f"{label}: and each goes somewhere real", str(hrefs))
+    # It has to be dismissable, or it sits over the board.
+    page.keyboard.press("Escape"); page.wait_for_timeout(120)
+    check(menu.is_hidden(), f"{label}: Escape closes the menu")
+    mark.click(); page.wait_for_timeout(120)
+    page.locator(".photo-box").click(position={"x": 5, "y": 5})
+    page.wait_for_timeout(150)
+    check(menu.is_hidden(), f"{label}: and a tap anywhere else closes it")
 
     # Guessing is done by pointing at the map. Every country the game will
     # accept has to be reachable that way, or it cannot be guessed at all.
@@ -835,10 +859,60 @@ def main():
         check(any("Discovering" in n or "couverte" in n or "Descubriendo" in n
                   for n in names),
               "a continent can be discovered", str(names[:8]))
+        # ---- the back catalogue is not a URL any more ----
+        # ?day=N used to pin any puzzle, and the archive linked to it for each
+        # of the last sixty days, so the whole history could be walked by
+        # counting upwards. It is honoured only for a day this browser has
+        # actually finished.
+        print("\n== the back catalogue ==")
+        today = page.evaluate("todayIndex")
+        unplayed = today - 5
+        fresh = ctx.new_page()
+        fresh.goto(f"{base}?day={unplayed}")
+        fresh.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
+        landed = fresh.evaluate("dayIndex")
+        check(landed == today,
+              "asking for an unplayed day by URL lands on today instead",
+              f"asked {unplayed}, got {landed}")
+        # A day this browser HAS finished is still replayable -- it spoils
+        # nothing, and the archive offers it.
+        played = page.evaluate("Object.keys(profile.days).map(Number)")
+        check(bool(played), "the profile has a finished day to replay", str(played))
+        if played:
+            d = played[0]
+            again = ctx.new_page()
+            again.goto(f"{base}?day={d}")
+            again.wait_for_function("typeof POOL !== 'undefined' && POOL.length > 0", timeout=15000)
+            check(again.evaluate("dayIndex") == d,
+                  "a day you have finished can still be replayed",
+                  f"asked {d}, got {again.evaluate('dayIndex')}")
+            check(again.evaluate("isPractice") is True,
+                  "and a replay is practice, so it cannot rewrite your record")
+            again.close()
+        fresh.close()
+
         page.evaluate("showView('Archive')"); page.wait_for_timeout(300)
         # One row per day since launch, capped at the 60 the archive shows. On
         # day one that is a single row -- an archive of days nobody could have
         # played would be padding, not history.
+        # Only a played day offers a way back in; the rest say so.
+        links = page.locator("#viewArchive .arch-row a").count()
+        locked = page.locator("#viewArchive .arch-locked").count()
+        rows = page.locator("#viewArchive .arch-row").count()
+        check(links + locked == rows,
+              "every archive row either opens or says it was not played",
+              f"{links} links + {locked} locked vs {rows} rows")
+        played_count = page.evaluate("Object.keys(profile.days).length")
+        # Today always opens, plus one per finished day that is not today.
+        expect_links = 1 + sum(1 for d in page.evaluate(
+            "Object.keys(profile.days).map(Number)") if d != page.evaluate("todayIndex"))
+        check(links == expect_links,
+              "and only the played days do", f"{links} links, expected {expect_links}")
+        hrefs = page.locator("#viewArchive .arch-row a").evaluate_all(
+            "els => els.map(e => e.getAttribute('href'))")
+        check(all(h == "." or h.startswith("?day=") for h in hrefs),
+              "archive links are today or a replay", str(hrefs))
+
         expected = min(page.evaluate("todayIndex") + 1, 61)
         check(page.locator("#viewArchive .arch-row").count() == expected,
               "archive lists one row per day since launch",

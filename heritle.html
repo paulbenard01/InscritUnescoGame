@@ -44,15 +44,19 @@
   .mark.spin img{animation:mark-spin 0.9s cubic-bezier(0.34,0.09,0.2,1);}
   @media (prefers-reduced-motion: reduce){ .mark.spin img{animation:none;} }
 
-  /* Links out. One row, quiet, at the very bottom: they are not the game. */
-  .links{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 18px;
-    margin-top:26px;padding-top:14px;border-top:1px solid rgba(201,162,75,0.15);}
-  .links a{font-family:'JetBrains Mono',monospace;font-size:0.62rem;
-    letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-dim);
-    text-decoration:none;padding:6px 2px;min-height:32px;display:inline-flex;
-    align-items:center;gap:5px;}
-  .links a:hover{color:var(--gold);}
-  .links:empty{display:none;}
+  /* The menu the mark opens. Anchored under it, left-aligned with it, and
+     above everything else on the page. */
+  .mark-menu{position:absolute;top:48px;left:0;z-index:12;min-width:186px;
+    background:var(--navy-2);border:1px solid var(--gold-dim);border-radius:10px;
+    padding:6px;text-align:left;
+    box-shadow:0 14px 34px rgba(5,8,18,0.5);}
+  .mark-menu a{display:flex;align-items:center;justify-content:space-between;
+    gap:10px;padding:10px 11px;min-height:42px;border-radius:7px;
+    font-family:'JetBrains Mono',monospace;font-size:0.66rem;letter-spacing:0.03em;
+    color:var(--ink);text-decoration:none;}
+  .mark-menu a:hover{background:rgba(201,162,75,0.12);color:var(--gold);}
+  .mark-menu a span{color:var(--gold-dim);}
+  .mark-menu:empty{display:none;}
   /* Only this line has to keep clear of the mark and the language control.
      Padding the whole header pushed the pitch onto two lines on a phone, which
      is the vertical budget above the photograph going backwards. */
@@ -369,6 +373,11 @@
     padding:9px 11px;}
   .arch-day{font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--cream);flex:1;}
   .arch-score{font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--ink-dim);}
+  /* A day nobody played has nothing to go back to, so it says so rather than
+     offering a link that would open an unplayed puzzle. */
+  .arch-locked{font-family:'JetBrains Mono',monospace;font-size:0.6rem;
+    color:rgba(156,166,192,0.5);letter-spacing:0.04em;text-transform:uppercase;
+    padding:7px 2px;}
 
   .countdown{text-align:center;font-family:'JetBrains Mono',monospace;font-size:0.72rem;
     color:var(--ink-dim);margin-top:10px;}
@@ -444,10 +453,14 @@
          is missing or misnamed the image hides itself, so the header falls back
          to the wordmark alone rather than showing a broken-image icon. See
          assets/README.md -- capitalisation is part of the filename on Pages. -->
-    <button class="mark" id="mark" aria-label="Heritle">
+    <button class="mark" id="mark" aria-label="Heritle" aria-expanded="false"
+            aria-controls="markMenu">
       <img src="assets/heritlelogogold.svg" alt=""
            onerror="this.closest('.mark').hidden = true">
     </button>
+    <!-- Where the links live. The foot of the page was the wrong home for
+         them: nobody scrolls past the puzzle to find out what the game is. -->
+    <div class="mark-menu" id="markMenu" hidden></div>
     <div class="wordmark">Heritle</div>
     <div class="pitch" id="pitch"></div>
     <div class="tagline" id="tagline"></div>
@@ -514,8 +527,6 @@
   <div class="view" id="viewCollection"></div>
   <div class="view" id="viewPassport"></div>
   <div class="view" id="viewArchive"></div>
-  <!-- Filled in from LINKS below: a row that only ever shows what exists. -->
-  <footer class="links" id="links"></footer>
 </div>
 
 <div class="modal-backdrop" id="fieldNotesBackdrop">
@@ -689,7 +700,7 @@ const UI = {
        passportTitle:'Passport', passportSub:'Your record of inscriptions visited',
        statPlayed:'Days', statStreak:'Streak', statBest:'Best', statAvg:'Avg score',
        archiveTitle:'Archive', archiveSub:'Replay any past day. Practice runs are not scored.',
-       archiveOpen:'Replay', archiveDone:'catalogued', practiceBadge:'PRACTICE — not scored',
+       archiveOpen:'Replay', archiveMissed:'not played', archiveDone:'catalogued', practiceBadge:'PRACTICE — not scored',
        nextIn:'Next inscription in', backToToday:'Back to today',
        achTitle:'Distinctions',
        ach:{ continents:['Circumnavigator','One entry catalogued on every continent'],
@@ -759,7 +770,7 @@ const UI = {
        passportTitle:'Passeport', passportSub:'Votre registre d’inscriptions visitées',
        statPlayed:'Jours', statStreak:'Série', statBest:'Record', statAvg:'Score moyen',
        archiveTitle:'Archives', archiveSub:'Rejouez n’importe quel jour passé. Les parties d’entraînement ne comptent pas.',
-       archiveOpen:'Rejouer', archiveDone:'catalogué', practiceBadge:'ENTRAÎNEMENT — non compté',
+       archiveOpen:'Rejouer', archiveMissed:'non jouée', archiveDone:'catalogué', practiceBadge:'ENTRAÎNEMENT — non compté',
        nextIn:'Prochaine inscription dans', backToToday:'Revenir à aujourd’hui',
        achTitle:'Distinctions',
        ach:{ continents:['Tour du monde','Une entrée cataloguée sur chaque continent'],
@@ -829,7 +840,7 @@ const UI = {
        passportTitle:'Pasaporte', passportSub:'Tu registro de inscripciones visitadas',
        statPlayed:'Días', statStreak:'Racha', statBest:'Récord', statAvg:'Puntuación media',
        archiveTitle:'Archivo', archiveSub:'Vuelve a jugar cualquier día pasado. Las prácticas no puntúan.',
-       archiveOpen:'Rejugar', archiveDone:'catalogado', practiceBadge:'PRÁCTICA — sin puntuar',
+       archiveOpen:'Rejugar', archiveMissed:'sin jugar', archiveDone:'catalogado', practiceBadge:'PRÁCTICA — sin puntuar',
        nextIn:'Próxima inscripción en', backToToday:'Volver a hoy',
        achTitle:'Distinciones',
        ach:{ continents:['Vuelta al mundo','Una entrada catalogada en cada continente'],
@@ -994,14 +1005,45 @@ const EPOCH = Date.UTC(2026,8,11);
 const now = new Date();
 const todayIndex = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - EPOCH) / 86400000);
 
-/* ?day=N pins the puzzle to a specific day. It exists for testing and for the
-   archive's replay mode; a visitor who never adds it sees today, exactly as
-   before. ?practice=1 marks a replay that must not touch streaks or scores. */
+/* Which puzzle you are on comes from the date, and essentially only from it.
+
+   It used to be overridable with ?day=N, and the archive linked to exactly
+   that for each of the last sixty days -- so the whole back catalogue was one
+   URL edit away and could be worked through from day one by counting upwards.
+   The daily puzzle is the game; that turned it into a list you could binge.
+
+   Now a replay is only possible for a day you have already finished: ?day=N is
+   honoured when your own history has a record for N, and ignored otherwise.
+   Replaying something you have already seen spoils nothing.
+
+   Tests pin the day with HERITLE_TEST_DAY, set before this script runs, because
+   a test needs determinism and a URL parameter is the wrong way to get it.
+
+   Being straight about the limit: history lives in localStorage, so anyone who
+   opens devtools can still forge a record and reach any day. What this closes
+   is the back catalogue being a *link* -- something you can share, or walk up
+   one number at a time without knowing anything. That was the actual hole. */
 const params = new URLSearchParams(location.search);
-const requestedDay = parseInt(params.get('day'), 10);
-const dayIndex = Number.isFinite(requestedDay)
-  ? Math.max(0, Math.min(requestedDay, todayIndex + 3650))
-  : todayIndex;
+
+function finishedDays(){
+  try{
+    const p = JSON.parse(localStorage.getItem('heritle-profile') || '{}');
+    return (p && typeof p.days === 'object' && p.days) ? p.days : {};
+  }catch(e){ return {}; }
+}
+
+const dayIndex = (function pickDay(){
+  const injected = window.HERITLE_TEST_DAY;
+  if(typeof injected === 'number' && Number.isFinite(injected)){
+    return Math.max(0, Math.floor(injected));
+  }
+  const asked = parseInt(params.get('day'), 10);
+  if(Number.isFinite(asked) && asked !== todayIndex
+     && Object.prototype.hasOwnProperty.call(finishedDays(), String(asked))){
+    return Math.max(0, asked);
+  }
+  return todayIndex;
+})();
 const isPractice = dayIndex !== todayIndex || params.get('practice') === '1';
 
 /* Deterministic per-day pick. A plain dayIndex % pool.length would walk the
@@ -2215,14 +2257,37 @@ document.addEventListener('keydown', e=>{
   else if(e.key === 'ArrowRight') stepGallery(1);
   else if(e.key === 'Escape') document.getElementById('modalBackdrop').classList.remove('open');
 });
-/* A tap spins the mark. Nothing else: it is a logo, not navigation. */
-(function spinTheMark(){
+/* A tap spins the mark and opens the menu under it. */
+(function markMenu(){
   const mark = document.getElementById('mark');
-  if(!mark) return;
+  const menu = document.getElementById('markMenu');
+  if(!mark || !menu) return;
   const img = mark.querySelector('img');
-  mark.addEventListener('click', ()=> mark.classList.add('spin'));
+
+  const setOpen = (open)=>{
+    // An empty menu is not worth opening: with no addresses configured there
+    // is nothing in it, and a blank panel reads as a bug.
+    const has = menu.children.length > 0;
+    menu.hidden = !(open && has);
+    mark.setAttribute('aria-expanded', String(!menu.hidden));
+  };
+
+  mark.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    mark.classList.add('spin');
+    setOpen(menu.hidden);
+  });
   // Cleared when the animation finishes, or a second tap would do nothing.
   img.addEventListener('animationend', ()=> mark.classList.remove('spin'));
+
+  // Anywhere else, or Escape, closes it -- including a tap on the board, which
+  // is what a hand reaches for when it wants the menu gone.
+  document.addEventListener('click', (e)=>{
+    if(!menu.hidden && !menu.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && !menu.hidden){ setOpen(false); mark.focus(); }
+  });
 })();
 
 document.getElementById('modalClose').addEventListener('click', ()=> document.getElementById('modalBackdrop').classList.remove('open'));
@@ -2429,7 +2494,7 @@ function collectionCard(r){
 /* Only what has an address, in a fixed order, each marked as leaving the game. */
 function renderLinks(){
   const T = t();
-  const box = document.getElementById('links');
+  const box = document.getElementById('markMenu');
   if(!box) return;
   box.innerHTML = ['instagram', 'news', 'source', 'contact']
     .filter(k => LINKS[k])
@@ -2576,11 +2641,18 @@ function renderArchive(){
   for(let d = todayIndex; d >= Math.max(0, todayIndex - 60); d--){
     const rec = profile.days[d];
     const date = new Date(EPOCH + d * 86400000).toISOString().slice(0,10);
+    // A link only where there is something to go back to: today, or a day this
+    // player finished. An unplayed day has no replay, because that link was
+    // the back catalogue.
+    const openable = d === todayIndex || !!rec;
     rows.push(`<div class="arch-row">
       <span class="arch-day">${date}${d===todayIndex ? ' ·' : ''}</span>
       <span class="arch-score">${rec ? T.scoreOf(Math.round(rec.score), MAX_SCORE) : '—'}</span>
-      <a class="btn secondary" style="font-size:0.68rem;padding:7px 11px"
-         href="?day=${d}">${d===todayIndex ? T.navGame : T.archiveOpen}</a></div>`);
+      ${openable
+        ? `<a class="btn secondary" style="font-size:0.68rem;padding:7px 11px"
+              href="${d === todayIndex ? '.' : '?day=' + d}">${
+                d===todayIndex ? T.navGame : T.archiveOpen}</a>`
+        : `<span class="arch-locked">${T.archiveMissed}</span>`}</div>`);
   }
   document.getElementById('viewArchive').innerHTML =
     `<div class="panel-head"><h2>${T.archiveTitle}</h2><p>${T.archiveSub}</p></div>
