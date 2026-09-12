@@ -30,6 +30,12 @@ jobs:
           mkdir -p _site
           cp heritle.html _site/index.html
           [ -d data ] && cp -r data _site/ || echo "no data/ — the game will use its built-in fallback set"
+          # The header loads its mark from assets/. Leaving this out is how the
+          # logo was missing from the live site while every check passed: the
+          # smoke suite copies assets/ into its own hermetic root, so it proved
+          # the page works rather than that the deploy ships what the page asks
+          # for.
+          [ -d assets ] && cp -r assets _site/ || echo "no assets/ — the header will show the wordmark alone"
           [ -d images ] && cp -r images _site/ || echo "no images/ — photo placeholders will show"
           touch _site/.nojekyll
 

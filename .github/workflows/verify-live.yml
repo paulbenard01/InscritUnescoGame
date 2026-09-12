@@ -54,6 +54,19 @@ jobs:
           echo "index: HTTP $code, $(wc -c < /tmp/live.html) bytes"
           test "$code" = "200"
           grep -q 'Heritle' /tmp/live.html || { echo "wordmark missing"; exit 1; }
+          # Every file under assets/ that the page asks for has to be on the
+          # deployed site. The logo was missing from the live site for exactly
+          # this reason -- the staging step did not copy assets/ -- and nothing
+          # caught it, because the smoke suite copies assets/ into its own
+          # hermetic root. Read out of the live HTML, so a new asset is covered
+          # the moment it is referenced rather than when someone remembers.
+          refs=$(grep -o 'src="assets/[^"]*"' /tmp/live.html | sed 's/src="//; s/"$//' | sort -u)
+          test -n "$refs" || { echo "the page references no assets/ files -- did the header change?"; exit 1; }
+          for ref in $refs; do
+            rc=$(curl -sS -o /dev/null -w '%{http_code}' -L "${URL%/}/$ref")
+            echo "asset $ref: HTTP $rc"
+            test "$rc" = "200" || { echo "the page asks for $ref but the deploy does not ship it"; exit 1; }
+          done
           dcode=$(curl -sS -o /tmp/live.json -w '%{http_code}' -L "${URL%/}/data/dataset.json")
           echo "dataset: HTTP $dcode, $(wc -c < /tmp/live.json) bytes"
           test "$dcode" = "200"
